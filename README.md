@@ -1,6 +1,7 @@
 ### **阶段一：环境安装 (每个团队成员都必须完成)**
 
 这一步是基础，团队里的**每个人**都需要在自己的电脑上完成配置。
+这里是B站的教程，提供给大家：https://www.bilibili.com/video/BV1y8411P7qs/?spm_id_from=333.337.search-card.all.click&vd_source=b4eb6038e60fc2b65b9647651ed4381f
 
 #### **第1步：安装 LaTeX 发行版 (核心引擎)**
 
