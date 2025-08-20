@@ -144,7 +144,7 @@ Just choose `xelatex', no `pdflatex' or `latex' and so on.}
 \setsansfont{Arial}
 \setCJKfamilyfont{kai}[AutoFakeBold]{STKaiti}
 \newcommand*{\kai}{\CJKfamily{kai}}
-\setCJKfamilyfont{song}[AutoFakeBold]{PingFang SC}
+\setCJKfamilyfont{song}[AutoFakeBold]{SimSun}
 \newcommand*{\song}{\CJKfamily{song}}
 
 \renewcommand\normalsize{%
