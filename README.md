@@ -4,7 +4,6 @@
 这里是B站的教程，提供给大家：https://www.bilibili.com/video/BV1y8411P7qs/?spm_id_from=333.337.search-card.all.click&vd_source=b4eb6038e60fc2b65b9647651ed4381f
 
 #### **第1步：安装 LaTeX 发行版 (核心引擎)**
-
 你的电脑需要一个能“解释”并“编译” LaTeX 代码的程序。VS Code 只是一个编辑器，真正干活的是它。
 
   * **推荐**: **TeX Live** (约 4-5 GB)
