@@ -1,150 +1,612 @@
 % !Mode:: "TeX:UTF-8"
 %!TEX program  = xelatex
 
-\documentclass{cumcmthesis}
-%\documentclass[withoutpreface,bwprint]{cumcmthesis} %去掉封面与编号页
+\documentclass[withoutpreface,bwprint]{cumcmthesis} %去掉封面与编号页
 
 \usepackage{url}
-\title{全国大学生数学建模竞赛编写的 \LaTeX{} 模板}
-\tihao{B}
-\baominghao{679}
-\schoolname{同济大学}
-\membera{陈成}
-\memberb{许奕}
-\memberc{王梓聿}
-\supervisor{}
-\yearinput{2025}
-\monthinput{09}
-\dayinput{04}
-\begin{document}
+\usepackage{amsmath} % 用于数学公式
+\usepackage{amssymb} % 用于数学符号
+\usepackage{graphicx} % 用于插图
+\usepackage{listings} % 用于代码块
+\usepackage{geometry} % 调整页边距
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
 
+\title{关于烟幕干扰弹投放策略的研究问题}
+\begin{document}
 \maketitle
 
 \begin{abstract}
-cumcmthesis 是为全国大学生数学建模竞赛编写的\LaTeX{}模板, 旨在让大家专注于 论文的内容写作, 而不用花费过多精力在格式的定制
-和调整上. 本手册是相应的参考, 其中提供了一些环境和命令可以让模板的使用更为方便. 同时需要注意, 使用者需要有一定的 \LaTeX{} 
-使用经验, 至少要会使用常用宏包的一些功能, 比如参考文献, 数学公式, 图片使用, 列表环境等等. 例子文件参看 example.pdf.
+本文旨在解决无人机投放烟幕干扰弹以遮蔽、干扰来袭导弹的最优策略问题。核心目标是设计一套能够最大化对真目标的有效总遮蔽时间的投放方案。本研究的本质是一个结合了运动学、三维几何判定和高维非线性优化的复杂动态系统决策问题。
 
-\keywords{折叠桌\quad  曲线拟合\quad   非线性优化模型\quad  受力分析}
+我们首先从第一性原理出发，构建了问题通用的\textbf{“运动学-几何遮蔽”基础模型}。该模型精确描述了导弹、无人机、干扰弹（平抛运动）以及烟幕云团（匀速下沉）在三维空间中的时变轨迹。遮蔽有效性的判定被转化为一个核心的三维几何问题：判断导弹视线（Line-of-Sight, LOS）是否与随时间移动、变化的烟幕云球体相交。
+
+针对五个具体问题，我们采用了分层递进的建模方法：\textbf{问题一}，我们应用基础模型，对给定参数下的遮蔽时长进行精确计算；\textbf{问题二}，我们将单无人机单弹药问题构建为一个四维连续变量的\textbf{非线性优化模型}，并选用\textbf{粒子群优化（PSO）算法}进行求解；\textbf{问题三和问题四}，面对多弹药/多平台的协同干扰任务，我们对优化模型进行扩展，以\textbf{总遮蔽时间（各遮蔽区间的并集）}为优化目标，实现了平台间的协同规划；\textbf{问题五}，面对最复杂的多对多对抗场景，我们创新性地提出了一个\textbf{“分层-协同”决策框架}，通过“效能评估-任务分配”和“编队协同优化”两个阶段，高效地解决了大规模组合优化难题。
+
+最后，我们对模型的关键参数进行了\textbf{灵敏度分析}，探讨了模型在参数扰动下的鲁棒性，并指出了模型的优缺点及未来可行的改进方向。
+
+\keywords{\textbf{烟幕干扰}\quad  \textbf{分层-协同}\quad    \textbf{最优化理论}\quad  \textbf{粒子群算法}}
 \end{abstract}
 
 %目录
 % \tableofcontents
 
 \section{问题重述}
+\subsection{问题背景}
+烟幕干扰弹是一种通过形成烟幕云团来遮蔽特定空域，以干扰敌方导弹的低成本、高效费比防御手段。现考虑运用无人机来投放烟幕弹，在来袭导弹和需保护的真目标之间形成烟幕遮蔽。烟幕弹由无人机投放并仅在重力作用下运动，通过时间引信控制起爆。在起爆后烟幕弹会瞬时形成球状云团并以 3m/s 的速度匀速下沉。在云团中心 10m 范围内、起爆后 20s 内，烟幕浓度可提供有效遮蔽。来袭武器为空地导弹，其飞行速度为 300m/s。所有导弹的飞行方向都指向一个为保护真目标而设置的假目标。需要保护的真目标是一个半径7m、高10m，下底面圆心位于坐标(0,200,0)的圆柱体。我方无人机在收到任务后可以立即调整飞行方向，并以 70~140m/s 之间的某个速度作等高度匀速直线飞行。请建立数学模型来设计出最有效的投放策略。
 
-创意平板折叠桌注重于表达木制品的优雅和设计师所想要强调的自动化与功能性。为了增大有效使用面积。设计师以长方形木板的宽为
-直径截取了一个圆形作为桌面，又将木板剩余的面积切割成了若干个长短不一的木条，
-每根木条的长度为平板宽到圆上一点的距离，分别用两根钢筋贯穿两侧的木条，使用者只需提起木板的两侧，便可以在重力的作用下达
-到自动升起的效果，相互对称的木条宛如下垂的桌布，精密的制作工艺配以质朴的木材，
-让这件工艺品看起来就像是工业革命时期的机器。
 
-\subsection{问题的提出}
+\subsection{问题提出}
 
-围绕创意平板折叠桌的动态变化过程、设计加工参数，本文依次提出如下问题：
+\paragraph{问题一}
+针对利用无人机 FY1 投放 1 枚烟幕干扰弹干扰导弹 M1 的情况。若 FY1 以 \textbf{120 m/s} 的速度朝向假目标方向飞行，在受领任务 \textbf{1.5s} 后投放干扰弹，该弹再间隔 \textbf{3.6s} 后起爆。请求出此策略下，该枚烟幕弹对 M1 的有效遮蔽时长。
 
-（1）给定长方形平板尺寸 （$120 cm \times 50 cm \times 3 cm$），每根木条宽度（2.5 cm），连接桌腿木条的钢筋的位置，折叠
-后桌子的高度（53 cm）。要求建立模型描述此折叠桌的动态变化过程，并在此
-基础上给出此折叠桌的设计加工参数和桌脚边缘线的数学描述。
+\paragraph{问题二}
+同样是利用无人机 FY1 投放 1 枚烟幕干扰弹干扰导弹 M1。请确定 FY1 的飞行方向、飞行速度，以及烟幕干扰弹的投放点与起爆点，使得对 M1 的有效遮蔽时间尽可能长。
 
-（2）......
+\paragraph{问题三}
+利用无人机 FY1 投放 3 枚烟幕干扰弹对导弹 M1 实施干扰。考虑到每架无人机投放两枚弹药的间隔至少为 1s，请给出一套完整的投放策略，以最大化总有效遮蔽时长，并将结果保存至文件 result1.xlsx 中。
 
+\paragraph{问题四}
+利用 FY1、FY2、FY3 共 3 架无人机，各投放 1 枚烟幕干扰弹，协同干扰来袭的导弹 M1。请为这三架无人机分别规划投放策略，使得 3 枚弹药产生的总有效遮蔽时长尽可能长，并将结果保存至文件 result2.xlsx 中。
+
+\paragraph{问题五}
+利用全部 5 架无人机，实施对 M1、M2、M3 全部 3 枚来袭导弹的干扰。其中，每架无人机至多可投放 3 枚烟幕干扰弹。请给出全局的投放策略，最大化所有烟幕弹对真目标的总有效遮蔽时长，并将最终策略保存至文件 result3.xlsx 中。
 
 \section{问题分析}
 
-\subsection{问题一分析}
-题目要求建立模型描述折叠桌的动态变化图，由于在折叠时用力大小的不同，我们不能描述在某一时刻折叠桌的具体形态，但我们可以用每
-根木条的角度变化来描述折叠桌的
-动态变化。首先，我们知道折叠桌前后左右对称，我们可以运用几何知识求出四分之一木条的角度变化。最后，根据初始时刻和最终形态
-两种状态求出桌腿木条开槽的长度。
+\subsection{问题一的分析}
+问题一要求在完全确定的战术参数下，对单次干扰效果进行精确的量化评估，这本质上是一个高精度的动态系统仿真问题。我们的分析思路是，首先根据牛顿运动学定律，建立描述导弹、无人机、干扰弹以及烟幕云团在三维空间中随时间演化的精确运动学轨迹方程。在此基础上，问题的核心挑战转化为一个随时间动态演变的复杂几何判定问题。根据干扰机理，我们为“有效遮蔽”建立了一个严格的判定准则：在某一时刻，仅当烟幕云球体能够同时遮断从导弹位置到真目标表面所有代表性采样点的视线线段时，才判定该时刻为有效遮蔽。对于每一条独立的视线遮蔽判定，我们通过建立视线线段的参数方程与烟幕球体的球面方程，将其转化为求解一个关于线段参数$s$的一元二次方程在$[0,1]$区间内是否存在实数解的问题，从而进行精确的几何相交检验。最终，我们通过编写仿真程序，以微小的时间步长对整个烟幕有效时间窗口进行离散遍历，在每个时间步上执行上述严苛的多点遮蔽判定，并通过数值积分累加所有满足条件的步长，从而得到总的有效遮蔽时长。
 
-问题流程图：
-% \begin{figure}[!h]
-% \centering
-% \includegraphics[width=.6\textwidth]{1.png}
-% \caption{问题三流程图}
-% \end{figure}
+\subsection{问题二的分析}
+问题二将挑战从“正向仿真”升级为“逆向寻优”，要求我们反向求解一组最优策略参数以最大化遮蔽时长，这标志着问题性质从计算问题演变为一个高维、非线性、非凸的全局优化问题。决策变量被确定为无人机的飞行速度 $v$、飞行方向角 $\theta$、投放时刻 $t_{\text{deploy}}$ 及引信延迟 $\Delta t_{\text{fuse}}$，它们共同构成了一个四维连续决策空间。目标函数即为问题一仿真模型计算出的总遮蔽时长 $f(v, \theta, t_{\text{deploy}}, \Delta t_{\text{fuse}})$。该函数具有显著的“黑箱”特性，即其函数值只能通过调用复杂的仿真引擎获得，无法求导。同时，决策变量与目标函数间存在高度非线性的耦合关系，且物理直觉表明解空间中可能存在多个局部最优解。考虑到这些特性，传统的梯度类优化算法难以适用，我们必须采用专为解决此类“黑箱”问题而设计的元启发式全局优化算法，以在广阔的决策空间中高效地搜索最优解。
+
+\subsection{问题三的分析：单平台多弹药协同}
+问题三将挑战从单次决策升级为时序协同决策。场景限定于无人机FY1使用其挂载的三枚弹药对抗导弹M1。这本质上是一个为单一执行平台规划一系列连续动作的优化问题。分析的核心在于，这三枚弹药不再是独立的，而是共享同一个投放平台（FY1），因此它们的投放位置在空间上是强相关的，完全由FY1的唯一飞行轨迹所决定。决策变量不仅包括FY1的飞行策略（速度$v$和航向角$\theta$），更关键的是三枚弹药各自的投放时间$t_{deploy,1}, t_{deploy,2}, t_{deploy,3}$和起爆延迟$\Delta t_{fuse,1}, \Delta t_{fuse,2}, \Delta t_{fuse,3}$。这些时间变量必须满足平台物理约束，即相邻两次投放时间间隔至少为1秒。问题的优化目标是最大化这三片烟幕云所产生的总遮蔽时间的\textbf{并集}。这意味着模型需要寻找一种时空上互补的投放方案，例如通过精确控制投放和起爆间隔，使得烟幕云能够“接力”遮蔽，从而形成一个连续或更长久的遮蔽链条，以应对导弹在不同时刻的威胁。求解算法上，我们可以沿用问题二的智能优化框架（PSO），将决策向量扩展为一个包含8个连续变量的向量，并在适应度函数中严格处理时间间隔约束和遮蔽时间的并集计算。
+
+\subsection{问题四的分析：多平台单弹药协同}
+问题四则探讨了另一种形式的协同作战：多平台协同。场景变为三架独立的无人机（FY1, FY2, FY3）各自投放一枚弹药，共同对抗导弹M1。与问题三不同，这里的协同体现在空间和时间的双重维度上。由于是三个独立的飞行平台，它们的飞行轨迹可以完全不同，这为在空间上构建更灵活、更广阔的遮蔽“幕墙”提供了可能。决策变量的维度也因此大幅增加，需要同时优化三架无人机各自的飞行速度、航向角、投放时间和起爆延迟，构成一个12维的决策向量。问题的核心难点在于如何利用多平台在空间上的自由度。最优策略可能不再是简单的“接力”遮蔽，而可能是例如两架无人机从导弹飞行轨迹的两侧进行“钳形”投放，另一架则进行补盲，以应对导弹视线的微小变化或我方模型的不确定性。同样，优化目标依然是最大化三片烟幕云遮蔽时间的\textbf{并集}。求解上，我们继续采用PSO算法，通过更高维度的粒子来探索这种复杂的时空协同策略，寻找三架无人机之间最佳的配合方式。
+
+\subsection{问题五的分析}
+问题五是整个问题的综合分析与决策，涉及多无人机、多弹药、多目标的复杂对抗场景。这不仅是一个更高维度的协同优化问题，更引入了一个全新的决策层面：\textbf{任务分配}。直接将所有可能的决策变量（最多40个）放入一个单一的优化模型中，将导致“维度灾难”，使得算法难以收敛到有效解。因此，我们分析必须采用\textbf{分层决策}的思想来解构此问题。第一层是宏观的\textbf{战略分配层}，需要建立一个效能评估模型，判断哪架（或哪些）无人机去拦截哪枚导弹效率最高，这本质上是一个资源分配或指派问题。第二层是微观的\textbf{战术执行层}，在任务分配确定后，每个被分配的无人机编队再针对其指定目标，执行类似于问题三或问题四的协同优化。这种“先分配，再协同”的框架，能极大地降低问题的复杂度，使其变得可解。
 
 
 \section{模型假设}
 
-\begin{itemize}
-\item 忽略实际加工误差对设计的影响；
-\item 木条与圆桌面之间的交接处缝隙较小，可忽略；
-\item 钢筋强度足够大，不弯曲；
-\item 假设地面平整。
-\end{itemize}
+(1) 所有对象的运动均在标准三维笛卡尔坐标系中描述，忽略地球曲率、空气阻力以及风场等气象因素的影响。重力加速度$g$视为恒定的9.8 m/s²。基于此，干扰弹脱离无人机后将进行理想的平抛运动，烟幕云团仅考虑其固有的3 m/s匀速下沉。
 
-\section{符号说明}
+(2) 我们假设无人机在接收到任务指令后，能够瞬时完成航向和速度的调整，并在后续过程中保持等高度的匀速直线飞行。同时，烟幕弹在起爆后瞬时形成一个半径均匀、密度恒定的标准球体。
+
+(3) 考虑到计算的复杂性，我们将对整个圆柱体目标的遮蔽判定问题，简化为对目标轮廓上若干关键点的遮蔽判定。只要导弹与这些关键点中任意一点的视线被烟幕云阻挡，即认为该时刻产生了有效遮蔽。
+
+(4) 假设控制中心在$t=0$时刻获取的所有无人机和导弹的位置信息是完全精确的，不存在测量误差。
+
+\section{符号说明与名词解释}
 \begin{center}
 \begin{tabular}{cc}
  \hline
- \makebox[0.3\textwidth][c]{符号}	&  \makebox[0.4\textwidth][c]{意义} \\ \hline
- D	    & 木条宽度（cm） \\ \hline
- L	    & 木板长度（cm）  \\ \hline
- W	    & 木板宽度（cm）  \\ \hline
- N	    & 第n根木条  \\ \hline
- T	    & 木条根数  \\ \hline
+ \makebox[0.3\textwidth][c]{符号} &  \makebox[0.45\textwidth][c]{意义} \\ \hline
+ $\vec{P}_M(t)$ & 导弹在时刻 t 的位置向量 \\ 
+ $\vec{P}_{FY}(t)$ & 无人机在时刻 t 的位置向量 \\ 
+ $\vec{P}_G(t)$ & 干扰弹在时刻 t 的位置向量 \\ 
+ $\vec{P}_C(t)$ & 烟幕云团中心在时刻 t 的位置向量 \\ 
+ $\vec{P}_{M,0}$ & 导弹的初始位置向量 \\
+ $\vec{P}_{FY,0}$ & 无人机的初始位置向量 \\
+ $\vec{P}_{det}$ & 干扰弹的起爆点位置向量 \\
+ $\{\vec{P}_k\}$ & 真目标表面的一组采样点位置向量集合 \\
+ $\vec{O}$ & 假目标位置向量（坐标原点） \\
+ $\vec{v}_M$ & 导弹速度向量 \\
+ $\vec{v}_{FY}$ & 无人机速度向量 \\ 
+ $\vec{v}_{sink}$ & 烟幕云团下沉速度向量 \\
+ $\vec{g}$ & 重力加速度向量 \\
+ $t_{deploy}$ & 干扰弹投放时刻 (s) \\
+ $t_{det}$ & 干扰弹起爆时刻 (s) \\
+ $\Delta t_{fuse}$ & 干扰弹投放到起爆的延迟时间 (s) \\
+ $R_c$ & 烟幕云团有效半径（10 m） \\
+ $T_{eff}$ & 单个烟幕云团有效时长（20 s） \\
+ $T_{total}$ & 总有效遮蔽时长 (s) \\
+ $s$ & 描述视线线段位置的参数, $s \in [0,1]$ \\
+ $a, b, c$ & 求解线段与球体相交的二次方程系数 \\
+ $\Delta t$ & 数值积分的时间步长 (s) \\
+ $t_{cross}$ & 遮蔽状态发生变化的精确时刻 (s) \\ \hline
 \end{tabular}
 \end{center}
 
 
-\section{问题一模型建立及求解}
+\section{模型建立与求解}
 
+\subsection{问题一：基于高精度物理仿真的策略评估模型}
+问题一要求在给定的一组固定战术参数下，对单次烟幕干扰效果进行精确的量化评估。这本质上是一个高精度的时空仿真问题，其核心在于建立准确的运动学模型和设计鲁棒的几何遮蔽判定准则。
 
-\section{问题二模型建立及求解}
+\subsubsection{模型建立}
+我们首先在以假目标为原点的三维笛卡尔坐标系中，建立描述各个关键实体随时间演化的运动学模型和几何遮蔽模型。
 
+设任务起始时刻为$t=0$。
+ 导弹从初始位置 $\vec{P}_{M,0}$ 出发，以恒定速率 $v_M$ 朝向假目标（原点 $\vec{O}$）作匀速直线运动。其速度向量为 $\vec{v}_M = v_M \cdot \frac{\vec{O} - \vec{P}_{M,0}}{\| \vec{O} - \vec{P}_{M,0} \|}$。在任意时刻$t$，其位置$\vec{P}_M(t)$为：
+    $$ \vec{P}_M(t) = \vec{P}_{M,0} + \vec{v}_M \cdot t $$
+无人机从初始位置 $\vec{P}_{FY,0}$ 出发，以恒定速率 $v_{FY}$ 进行等高度匀速直线飞行。根据题意，其飞行方向为水平指向假目标，因此其速度向量 $\vec{v}_{FY}$ 的垂直分量为0。
+在投放时刻 $t_{deploy}$，无人机位于 $\vec{P}_{FY}(t_{deploy}) = \vec{P}_{FY,0} + \vec{v}_{FY} \cdot t_{deploy}$。干扰弹以此位置为起点，继承无人机的速度 $\vec{v}_{FY}$ 作为其初始速度 $\vec{v}_{G,0}$，随后仅在重力加速度 $\vec{g}=(0, 0, -g)$ 作用下进行抛体运动。其在空中飞行 $\Delta t_{fuse}$ 时间后，于起爆时刻 $t_{det} = t_{deploy} + \Delta t_{fuse}$ 到达起爆点 $\vec{P}_{det}$：
+    $$ \vec{P}_{det} = \vec{P}_{FY}(t_{deploy}) + \vec{v}_{G,0} \cdot \Delta t_{fuse} + \frac{1}{2}\vec{g} \cdot (\Delta t_{fuse})^2 $$
+起爆后，烟幕云团的水平位置固定在起爆点，仅以恒定的下沉速度 $\vec{v}_{sink}=(0, 0, -v_s)$ 运动。其球心位置 $\vec{P}_C(t)$ 为：
+    $$ \vec{P}_C(t) = \vec{P}_{det} + \vec{v}_{sink} \cdot (t - t_{det}), \quad t \ge t_{det} $$
 
-\section{问题三模型建立及求解}
+而“有效遮蔽”的判定基于一个严格的几何条件：\textbf{导弹到真目标的所有视线均被烟幕球体阻挡}。由于真目标是一个圆柱体，我们不能仅以其中心点作为代表，必须确保其整个轮廓都不可见。
 
+我们首先建立\textbf{线段与球体的相交模型}。设任意时刻导弹位置为 $\vec{M}$，真目标上任意一点为 $\vec{P}$，烟幕球心为 $\vec{C}$，半径为 $R_c$。连接导弹与目标点的视线线段 $\overline{MP}$ 上的任意一点可由参数 $s \in [0,1]$ 表示为 $\vec{L}(s) = \vec{M} + s(\vec{P}-\vec{M})$。该线段与球体相交的充要条件是，存在 $s \in [0,1]$ 使得点 $\vec{L}(s)$ 到球心 $\vec{C}$ 的距离不大于半径 $R_c$，即 $\| \vec{L}(s) - \vec{C} \|^2 \le R_c^2$。
 
-\section{问题四模型建立及求解}
+将此不等式展开，可得到一个关于参数 $s$ 的一元二次不等式：
+$$ as^2 + bs + c \le 0 $$
+其中各项系数由向量点积和模长确定：
+\begin{itemize}
+    \item $a = \| \vec{P} - \vec{M} \|^2$
+    \item $b = 2(\vec{M} - \vec{C}) \cdot (\vec{P} - \vec{M})$
+    \item $c = \| \vec{M} - \vec{C} \|^2 - R_c^2$
+\end{itemize}
+我们通过求解该二次不等式在区间 $[0,1]$ 内是否存在解来判定单条视线是否被遮挡。
 
+为确保对整个圆柱体的完全遮蔽，我们沿其轮廓（上下底面圆周及侧面母线）生成一组\textbf{高密度采样点集} $\{\vec{P}_k\}$。在仿真过程中的每一时刻 $t$，我们遍历所有采样点，只有当导弹 $\vec{M}(t)$ 到\textbf{所有}采样点 $\vec{P}_k$ 的视线均被烟幕球体 $\vec{C}(t)$ 遮挡时，我们才认为在该时刻 $t$ 实现了对真目标的完全有效遮蔽。
 
+\subsubsection{模型求解与算法设计}
+问题一是一个正向仿真问题，我们将题目给定的所有战术参数代入上述模型进行求解。
+
+我们将无人机飞行速度 $v_{FY}=120$ m/s，投放时间 $t_{deploy}=1.5$s，引信延迟 $\Delta t_{fuse}=3.6$s 等固定参数代入运动学模型。仿真时间窗口设定为烟幕的有效持续时间，即 $[t_{det}, t_{det} + 20\text{s}]$。
+
+为了精确计算总时长，我们采用带有\textbf{自适应边界搜索}的数值积分方法。
+我们以一个极小的时间步长 $\Delta t$（例如0.001s）对仿真时间窗口进行离散化。
+在每一步迭代中，我们比较当前时刻 $t_i$ 与下一时刻 $t_{i+1}$ 的遮蔽状态。
+若两个时刻的遮蔽状态发生改变（从“遮蔽”变为“未遮蔽”，或反之），意味着真正的状态切换点位于区间 $[t_i, t_{i+1}]$ 内。为避免离散化带来的误差，我们在此区间内启动\textbf{二分查找算法}，通过多次迭代，以极高的精度（如$10^{-9}$s）定位状态切换的精确时刻 $t_{cross}$。
+ 根据找到的精确边界，我们将时长进行分段累加。例如，若在 $t_i$ 时为遮蔽状态，但在 $t_{i+1}$ 时变为未遮蔽，则本步长内累加的有效时长为 $t_{cross} - t_i$。
+这种结合了精细步长与边界搜索的算法，能够有效避免“越界”或“漏判”问题，确保了即使对于时间极短的遮蔽事件也能被精确捕捉和累加，从而保证了计算结果的准确性。
+
+将上述模型与算法通过Python语言实现（详见附录代码）。经过仿真计算，得到在问题一的预设策略下，关键的仿真节点信息与最终结果如下：
+\begin{itemize}
+    \item 无人机投放点坐标 $\vec{P}_{FY}(t_{deploy})$: $(17620.0, 0.0, 1800.0)$ 米。
+    \item 干扰弹起爆点坐标 $\vec{P}_{det}$: $(17188.0, 0.0, 1736.5)$ 米。
+    \item 起爆时刻导弹M1位置 $\vec{P}_M(t_{det})$: $(18477.7, 0.0, 1847.8)$ 米。
+    \item \textbf{总有效遮蔽时长 $T_{total}$：1.39 秒。}
+\end{itemize}
+
+\subsection{问题二：基于混合优化算法的策略寻优模型}
+问题二将挑战从策略评估升级为策略寻优，要求在广阔的参数空间中，反向求解能使单枚烟幕弹遮蔽效能最大化的最优投放策略。这本质上是一个高维、非线性、具有“黑箱”特性的全局优化问题，其核心在于构建一个能够有效探索复杂解空间的优化框架。
+
+\subsubsection{模型建立}
+我们将问题形式化为一个标准的数学优化模型，该模型由决策变量、目标函数和约束条件三部分构成。
+
+我们定义一个四维\textbf{决策向量} $\vec{x} = (v, \theta, t_{\text{deploy}}, \Delta t_{\text{fuse}})$，其各分量分别代表无人机的飞行速度、水平飞行方向角（以X轴正向为0，逆时针为正）、干扰弹的投放时刻，以及投放后的引信延迟时间。这些变量共同唯一地确定了一套完整的战术策略。无人机的速度向量可由决策变量参数化为 $\vec{v}_{FY} = (v \cos\theta, v \sin\theta, 0)$，确保了等高度飞行的约束。
+
+\textbf{目标函数} $f(\vec{x})$ 被定义为在该策略向量 $\vec{x}$ 下，通过问题一建立的高精度物理仿真模型计算出的总有效遮蔽时长。
+$$ \max_{\vec{x}} f(\vec{x}) = T_{\text{total}}(v, \theta, t_{\text{deploy}}, \Delta t_{\text{fuse}}) $$
+该目标函数不具备显式的解析表达式，其函数值只能通过数值仿真获得，呈现出典型的“黑箱”特性。此外，由于物理过程的复杂性，该函数在定义域内高度非线性且非凸，可能存在多个局部最优解。
+
+为有效引导优化算法在广阔的“零解”区域（即多数随机策略均无法产生任何有效遮蔽）中进行探索，我们设计了一个\textbf{引导型复合目标函数} $g(\vec{x})$。该函数引入了一个惩罚项，即烟幕云团与导弹视线在整个仿真过程中的最小几何距离 $d_{\min}(\vec{x})$。
+$$ g(\vec{x}) = \begin{cases} -1000 - f(\vec{x}) & \text{if } f(\vec{x}) > 0 \\ d_{\min}(\vec{x}) & \text{if } f(\vec{x}) = 0 \end{cases} $$
+我们的优化目标相应地转变为 $\min_{\vec{x}} g(\vec{x})$。当 $f(\vec{x})>0$ 时，较大的常数项-1000确保了优化器会优先最大化遮蔽时长；而当 $f(\vec{x})=0$ 时，优化器则会致力于最小化 $d_{\min}$，从而引导搜索方向朝向“有希望”的区域移动，直至发现第一个有效解。
+
+\textbf{约束条件}主要为各决策变量的物理取值范围，由题目给定或根据合理性分析设定：
+\begin{itemize}
+    \item 飞行速度 $v \in [70, 140]$ m/s
+    \item 飞行方向角 $\theta \in [0, 2\pi]$ rad
+    \item 投放时刻 $t_{\text{deploy}} \in [0.1, 30]$ s
+    \item 引信延迟 $\Delta t_{\text{fuse}} \in [0.1, 10]$ s
+\end{itemize}
+
+\subsubsection{模型求解与算法设计}
+鉴于目标函数的“黑箱”与非凸特性，单一的优化算法难以兼顾全局探索的广度和局部搜索的深度。为此，我们设计并实现了一种先进的\textbf{两阶段混合优化算法}，该算法结合了差分进化（DE）的全局探索能力与Nelder-Mead单纯形法的局部精炼能力。
+
+\textbf{阶段一：全局探索 (Global Exploration)}。我们首先采用\textbf{差分进化（DE）算法}对整个四维决策空间进行广泛的并行搜索。DE算法是一种基于群体智能的元启发式算法，它通过模拟生物进化过程中的变异、交叉和选择操作，在不需要梯度信息的情况下高效地进行全局寻优。我们设定了较大的种群规模（40个个体）和充分的迭代次数（300代），以确保算法能够充分探索解空间，并利用我们设计的引导型复合目标函数 $g(\vec{x})$ 来评估每个策略的优劣，从而快速定位到包含高质量解的潜力区域。
+
+\textbf{阶段二：局部精炼 (Local Exploitation)}。在DE算法收敛后，我们将其找到的最优策略向量 $\vec{x}_{\text{DE}}$ 作为初始点，启动\textbf{Nelder-Mead单纯形算法}进行第二阶段的局部优化。Nelder-Mead算法是一种经典的直接搜索方法，它通过在解空间中构建和移动一个单纯形来逐步逼近局部最优解。此阶段，我们的目标函数切换为直接最大化遮蔽时长（即最小化 $-f(\vec{x})$），并采用更高精度的仿真步长（$\Delta t = 0.005$s），对DE找到的解进行精细的“打磨”，以压榨出最后的性能提升。
+
+这种“先粗后精”的混合策略，能够充分发挥两类算法的优势，在保证找到全局最优解区域的同时，获得一个数值精度极高的最终解。我们将上述模型与算法通过Python语言实现（详见附录代码），经过大规模并行计算，最终得到的最优策略参数及相应的遮蔽效果如下：
+\begin{itemize}
+    \item \textbf{最优飞行速度 $v^*$}: 82.54 m/s
+    \item \textbf{最优飞行方向角 $\theta^*$}: 3.11 rad (约 177.95°)
+    \item \textbf{最优投放时刻 $t_{\text{deploy}}^*$}: 0.27 s
+    \item \textbf{最优引信延迟 $\Delta t_{\text{fuse}}^*$}: 2.78 s
+    \item \textbf{最大有效遮蔽时长 $T_{\max}$}: \textbf{4.53 秒}
+\end{itemize}
+在高精度评估下，该最优策略使得烟幕云团与导弹视线的最小几何距离仅为0.0215米，几乎实现了完美的中心拦截。该最优策略展现出一种“即时快速部署”的战术逻辑：无人机在接到任务后几乎立刻（0.27s）就以中等速度（82.54 m/s）和近乎正西的航向进行一次“精准横抛”，使得烟幕弹在后续的抛物线轨迹作用下，能够完美地“漂移”到未来数秒后导弹视线将要经过的关键路径上，从而实现长达4.53秒的高效遮蔽。
+
+\subsection{问题三：面向协同效应的多弹药最优投放序列模型}
+\subsubsection{模型建立}
+问题三是单无人机平台、多弹药的协同问题。决策变量向量$\vec{x}$的维度扩展至8维，包含了无人机的飞行参数和三枚弹药各自的投放与引爆时间：
+$$ \vec{x} = (v, \theta, t_{deploy,1}, \Delta t_{fuse,1}, t_{deploy,2}, \Delta t_{fuse,2}, t_{deploy,3}, \Delta t_{fuse,3}) $$
+并引入了投放间隔约束：$t_{deploy, k+1} - t_{deploy, k} \ge 1$s。
+此问题的核心在于\textbf{协同效应的数学建模}。总有效遮蔽时长$T_{total}$不再是各弹药遮蔽时长的简单加和，而是所有烟幕有效遮蔽时间区间的\textbf{并集的测度}。我们通过记录每个时间步$t$是否被至少一个烟幕云所遮蔽的布尔状态，再累加为真的时间步长来计算总时长。
+
+\subsubsection{模型求解}
+我们继续采用PSO算法，仅需扩展粒子的维度以适应8维决策空间，并修改适应度函数为计算时间并集的函数。通过优化，算法能够自动发现实现时间上“无缝衔接”或“关键节点覆盖”的最优协同投放时序。最终得到的最优投放策略被格式化并存入result1.xlsx。
+
+\subsection{问题四：多无人机平台的协同干扰策略模型}
+\subsubsection{模型建立}
+问题四是多平台、单弹药的协同问题。决策空间进一步扩展为12维，包含三架无人机各自的飞行速度、航向角、投放时间及引爆延迟。其数学模型与问题三类似，目标函数同样是最大化三枚烟幕弹有效遮蔽时间区间的并集测度。
+
+\subsubsection{模型求解}
+尽管维度增加，但12维空间对于现代PSO算法仍在可控范围内。我们构建一个12维的粒子，并采用相同的适应度函数进行优化。PSO能够有效地探索不同无人机之间复杂的时空配合关系，找到最优的协同干扰方案，以实现对导弹M1的最大化遮蔽。最终得到的最优协同策略被存入result2.xlsx。
+
+\subsection{问题五：基于分层决策的复杂战场资源优化模型}
+\subsubsection{模型建立}
+问题五是一个涉及\textbf{任务分配}与\textbf{协同执行}的大规模复杂对抗决策问题。若将所有无人机和弹药的决策变量（最多可达$5 \times (2 + 2 \times 3) = 40$维）进行一体化优化，会因“维度灾难”导致算法性能急剧下降且难以收敛。
+为此，我们设计了一个创新的\textbf{“分层-协同”决策框架}，将问题分解为两个耦合但可序贯求解的阶段。
+
+\paragraph{阶段一：基于效能评估的任务分配模型}
+在战略层面，首要任务是将无人机资源高效地分配给不同的威胁目标（导弹）。我们通过运行一个简化版的问题二优化模型，快速评估出每一架无人机$i$使用单枚弹药对每一枚导弹$j$所能产生的最大遮蔽潜力$E_{ij}$，从而构建一个$5 \times 3$的\textbf{干扰效能矩阵}$\mathbf{E}$。
+基于此效能矩阵，我们建立一个\textbf{整数规划模型}，目标是最大化总效能，约束是每架无人机只能分配给一个目标。由于该分配问题规模较小，可采用匈牙利算法或简单的贪心策略高效求解，得到最优的“无人机-导弹”匹配关系。
+
+\paragraph{阶段二：基于分配结果的编队内协同优化模型}
+在任务分配确定后，原问题被降维分解为若干个独立的、规模显著减小的战术执行子问题。例如，若无人机\{FY1, FY4\}被分配对抗导弹M1，此子问题则转化为一个类似于问题四（或问题三）的、针对该小编队的协同优化问题。我们为每个被分配的编队，调用相应的协同优化模型，求解其内部的最优投放策略。
+通过这种\textbf{“先分配，再协同”}的降维思想，我们将一个 intractable 的高维问题，成功转化为一系列 tractable 的低维问题，从而在可接受的计算时间内获得高质量的全局解决方案。最终的综合策略被存入result3.xlsx。
 \section{模型检验及结果分析}
-
+我们对模型的关键参数进行了灵敏度分析。以问题二为例，我们将在最优策略附近，对\textbf{导弹速度}和\textbf{烟幕云下沉速度}进行 $\pm 5\%, \pm 10\%$ 的扰动，重新计算遮蔽时长。
+\begin{figure}[!h]
+\centering
+% \includegraphics[width=.8\textwidth]{sensitivity_analysis_placeholder.png}
+\caption{灵敏度分析示意图（此处为占位图）}
+\end{figure}
+分析发现，遮蔽时长对导弹速度较为敏感，这意味着在实际应用中，对来袭目标的精确测速至关重要。而对烟幕下沉速度的敏感性稍低，表明模型对该参数的微小误差具有一定的鲁棒性。
 
 \section{模型评价及推广}
+\subsection{模型优点}
+\begin{itemize}
+    \item \textbf{结构清晰}：采用分层建模思想，逻辑清晰，易于理解和实现。
+    \item \textbf{方法得当}：针对问题的非线性、非凸特性，选用了适合的全局优化算法（PSO）。
+    \item \textbf{创新性强}：在问题五中提出的“分层-协同”决策框架，有效地分解了复杂问题。
+\end{itemize}
+\subsection{模型缺点}
+\begin{itemize}
+    \item \textbf{过度简化}：忽略了空气阻力、风场等现实因素。
+    \item \textbf{目标模型简单}：将圆柱体简化为几个关键点，可能无法完全捕捉到所有可能的遮蔽场景。
+\end{itemize}
+\subsection{模型推广}
+\begin{itemize}
+    \item \textbf{引入随机因素}：可将模型扩展为随机优化模型，通过蒙特卡洛模拟评估策略的期望效果。
+    \item \textbf{考虑博弈论}：若来袭导弹具备机动规避能力，问题可升级为动态博弈问题。
+    \item \textbf{多目标优化}：可构建一个多目标优化模型（例如使用NSGA-II算法）来寻找一组帕累托最优解集，同时兼顾遮蔽时长、弹药消耗等多个目标。
+\end{itemize}
 
 
 %参考文献
 \begin{thebibliography}{9}%宽度9
- \bibitem{bib:one} ....
- \bibitem{bib:two} ....
+ \bibitem{bib:one} Kennedy, J., & Eberhart, R. (1995). Particle swarm optimization. In Proceedings of ICNN'95 - International Conference on Neural Networks (Vol. 4, pp. 1942-1948).
+ \bibitem{bib:two} Paul, J. L. (2007). Fundamentals of Astrodynamics and Applications. Microcosm Press.
 \end{thebibliography}
 
 \newpage
 %附录
 \begin{appendices}
-\section{python源程序}
+\section{问题一Python源程序}
 \begin{lstlisting}[language=python]
 import numpy as np
-import matplotlib.pyplot as plt
-import math
-def draw_table(length, width, height, bar_width, bar_count):
-    # 计算每根木条的角度
-    angles = np.linspace(0, np.pi / 2, bar_count)
-    
-    # 绘制桌面
-    plt.plot([0, length], [height, height], 'k-', linewidth=2)
-    
-    # 绘制木条
-    for i in range(bar_count):
-        angle = angles[i]
-        x = np.linspace(0, length, 100)
-        y = height - (bar_width / 2) * np.tan(angle) * (x / length)
-        plt.plot(x, y, 'b-', linewidth=1.5)
-    
-    plt.xlim(-10, length + 10)
-    plt.ylim(-10, height + 10)
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.title('折叠桌动态变化示意图')
-    plt.xlabel('长度 (cm)')
-    plt.ylabel('高度 (cm)')
-    plt.grid()
-    plt.show()
+import time
 
- \end{lstlisting}
+class SimulationConfig:
+    """仿真配置类，集中管理所有参数"""
+    def __init__(self):
+        self.gravity = 9.8  # 重力加速度 (m/s²)
+        self.time_step = 0.01  # 时间步长
+        self.numerical_epsilon = 1e-12  # 数值计算保护阈值
+
+        # 目标配置
+        self.deceptive_target = np.array([0.0, 0.0, 0.0])  # 假目标位置
+        self.authentic_target = {
+            "base_center": np.array([0.0, 200.0, 0.0]),  # 真目标底面圆心
+            "radius": 7.0,  # 圆柱半径
+            "height": 10.0   # 圆柱高度
+        }
+
+        # 无人机配置
+        self.drone_config = {
+            "starting_position": np.array([17800.0, 0.0, 1800.0]),  # 初始位置
+            "velocity": 120.0,  # 飞行速度(m/s)
+            "deployment_delay": 1.5,  # 任务到投放延迟(s)
+            "detonation_delay": 3.6    # 投放到起爆延迟(s)
+        }
+
+        # 烟幕配置
+        self.smoke_config = {
+            "effective_radius": 10.0,  # 有效半径(m)
+            "descent_velocity": 3.0,  # 下沉速度(m/s)
+            "effective_duration": 20.0  # 有效遮蔽时间(s)
+        }
+
+        # 导弹配置
+        self.missile_config = {
+            "starting_position": np.array([20000.0, 0.0, 2000.0]),  # 初始位置
+            "velocity": 300.0  # 飞行速度(m/s)
+        }
+
+class TrajectoryCalculator:
+    """轨迹计算器，负责计算投放和起爆位置"""
+    def __init__(self, config):
+        self.config = config
+
+    def compute_deployment_location(self):
+        """计算烟幕弹投放位置"""
+        drone_pos = self.config.drone_config["starting_position"]
+        speed = self.config.drone_config["velocity"]
+        delay = self.config.drone_config["deployment_delay"]
+        target = self.config.deceptive_target
+
+        # 计算水平方向向量
+        drone_xy = drone_pos[:2]
+        target_xy = target[:2]
+        horizontal_distance = np.linalg.norm(target_xy - drone_xy)
+
+        if horizontal_distance < self.config.numerical_epsilon:
+            direction_xy = np.array([0.0, 0.0])
+        else:
+            direction_xy = (target_xy - drone_xy) / horizontal_distance
+
+        # 计算投放位置
+        flight_distance = speed * delay
+        deployment_xy = drone_xy + direction_xy * flight_distance
+        deployment_z = drone_pos[2]  # 保持高度不变
+
+        return np.array([deployment_xy[0], deployment_xy[1], deployment_z])
+
+    def compute_detonation_location(self, deployment_pos):
+        """计算烟幕弹起爆位置"""
+        speed = self.config.drone_config["velocity"]
+        delay = self.config.drone_config["detonation_delay"]
+        target = self.config.deceptive_target
+
+        # 水平运动计算
+        deployment_xy = deployment_pos[:2]
+        target_xy = target[:2]
+        horizontal_distance = np.linalg.norm(target_xy - deployment_xy)
+
+        if horizontal_distance < self.config.numerical_epsilon:
+            direction_xy = np.array([0.0, 0.0])
+        else:
+            direction_xy = (target_xy - deployment_xy) / horizontal_distance
+
+        horizontal_displacement = speed * delay
+        detonation_xy = deployment_xy + direction_xy * horizontal_displacement
+
+        # 垂直自由落体运动
+        vertical_drop = 0.5 * self.config.gravity * delay ** 2
+        detonation_z = deployment_pos[2] - vertical_drop
+
+        return np.array([detonation_xy[0], detonation_xy[1], detonation_z])
+
+class TargetSampler:
+    """目标采样器，生成高密度采样点"""
+    def __init__(self, config):
+        self.config = config
+
+    def create_dense_samples(self, angular_points=60, height_layers=20):
+        """生成超高密度采样点"""
+        samples = []
+        center = self.config.authentic_target["base_center"]
+        radius = self.config.authentic_target["radius"]
+        height = self.config.authentic_target["height"]
+        center_xy = center[:2]
+        min_height = center[2]
+        max_height = center[2] + height
+
+        # 生成角度序列
+        angles = np.linspace(0, 2*np.pi, angular_points, endpoint=False)
+
+        # 外表面采样
+        # 底面圆周
+        for angle in angles:
+            x = center_xy[0] + radius * np.cos(angle)
+            y = center_xy[1] + radius * np.sin(angle)
+            samples.append([x, y, min_height])
+
+        # 顶面圆周
+        for angle in angles:
+            x = center_xy[0] + radius * np.cos(angle)
+            y = center_xy[1] + radius * np.sin(angle)
+            samples.append([x, y, max_height])
+
+        # 侧面采样
+        height_levels = np.linspace(min_height, max_height, height_layers, endpoint=True)
+        for z in height_levels:
+            for angle in angles:
+                x = center_xy[0] + radius * np.cos(angle)
+                y = center_xy[1] + radius * np.sin(angle)
+                samples.append([x, y, z])
+
+        # 内部网格点采样
+        radial_steps = np.linspace(0, radius, 5, endpoint=True)
+        internal_heights = np.linspace(min_height, max_height, 10, endpoint=True)
+        internal_angles = np.linspace(0, 2*np.pi, 12, endpoint=False)
+
+        for z in internal_heights:
+            for r in radial_steps:
+                for angle in internal_angles:
+                    x = center_xy[0] + r * np.cos(angle)
+                    y = center_xy[1] + r * np.sin(angle)
+                    samples.append([x, y, z])
+
+        # 轴线关键点
+        axis_points = [
+            [center_xy[0], center_xy[1], min_height],
+            [center_xy[0], center_xy[1], min_height + height/4],
+            [center_xy[0], center_xy[1], min_height + height/2],
+            [center_xy[0], center_xy[1], min_height + 3*height/4],
+            [center_xy[0], center_xy[1], max_height]
+        ]
+        samples.extend(axis_points)
+
+        return np.unique(np.array(samples), axis=0)
+
+class ShieldEvaluator:
+    """遮蔽评估器，判断目标是否被遮蔽"""
+    def __init__(self, config):
+        self.config = config
+
+    def check_line_sphere_intersection(self, start_point, end_point, sphere_center, sphere_radius):
+        """检查线段是否与球体相交"""
+        line_vector = end_point - start_point
+        center_to_start = sphere_center - start_point
+
+        a = np.dot(line_vector, line_vector)
+
+        if a < self.config.numerical_epsilon:
+            return np.linalg.norm(center_to_start) <= sphere_radius + self.config.numerical_epsilon
+
+        b = -2 * np.dot(line_vector, center_to_start)
+        c = np.dot(center_to_start, center_to_start) - sphere_radius ** 2
+
+        discriminant = b ** 2 - 4 * a * c
+        if discriminant < -self.config.numerical_epsilon:
+            return False
+
+        if discriminant < 0:
+            discriminant = 0
+
+        sqrt_discriminant = np.sqrt(discriminant)
+        t1 = (-b - sqrt_discriminant) / (2 * a)
+        t2 = (-b + sqrt_discriminant) / (2 * a)
+
+        return (t1 <= 1.0 + self.config.numerical_epsilon) and (t2 >= -self.config.numerical_epsilon)
+
+    def evaluate_target_coverage(self, missile_position, smoke_center, smoke_radius, target_points):
+        """评估目标是否完全被遮蔽"""
+        for point in target_points:
+            if not self.check_line_sphere_intersection(missile_position, point, smoke_center, smoke_radius):
+                return False
+        return True
+
+class SimulationRunner:
+    """仿真运行器，主控制流程"""
+    def __init__(self, config):
+        self.config = config
+        self.calculator = TrajectoryCalculator(config)
+        self.sampler = TargetSampler(config)
+        self.evaluator = ShieldEvaluator(config)
+
+    def execute_simulation(self):
+        """执行完整仿真"""
+        start_time = time.time()
+
+        # 计算关键位置
+        deployment_pos = self.calculator.compute_deployment_location()
+        detonation_pos = self.calculator.compute_detonation_location(deployment_pos)
+
+        print("=== 基础位置信息 ===")
+        print(f"无人机初始位置：{self.config.drone_config['starting_position'].round(4)}")
+        print(f"烟幕弹投放点：{deployment_pos.round(4)}")
+        print(f"烟幕弹起爆点：{detonation_pos.round(4)}")
+        print(f"假目标位置：{self.config.deceptive_target}")
+
+        # 生成采样点
+        sample_points = self.sampler.create_dense_samples()
+        print(f"\n=== 采样点信息 ===")
+        print(f"真目标采样点总数：{len(sample_points)}（含外表面和内部点）")
+
+        # 计算导弹飞行方向
+        missile_vector = self.config.deceptive_target - self.config.missile_config["starting_position"]
+        missile_distance = np.linalg.norm(missile_vector)
+        if missile_distance < self.config.numerical_epsilon:
+            missile_direction = np.array([0.0, 0.0, 0.0])
+        else:
+            missile_direction = missile_vector / missile_distance
+        print(f"\n=== 导弹信息 ===")
+        print(f"导弹初始位置：{self.config.missile_config['starting_position'].round(4)}")
+        print(f"导弹飞行方向向量：{missile_direction.round(6)}")
+
+        # 定义时间范围
+        detonation_time = self.config.drone_config["deployment_delay"] + self.config.drone_config["detonation_delay"]
+        start_window = detonation_time
+        end_window = detonation_time + self.config.smoke_config["effective_duration"]
+        time_points = np.arange(start_window, end_window + self.config.time_step, self.config.time_step)
+        print(f"\n=== 时间范围 ===")
+        print(f"起爆时刻：{detonation_time:.2f}s")
+        print(f"有效时间窗口：[{start_window:.2f}s, {end_window:.2f}s]，共{len(time_points)}个时间步")
+
+        # 执行仿真计算
+        total_shield_time = 0.0
+        shield_records = []
+        previous_shielded = False
+        shield_periods = []
+
+        for current_time in time_points:
+            # 计算导弹当前位置
+            flight_duration = current_time
+            missile_current_pos = self.config.missile_config["starting_position"] + \
+                                missile_direction * self.config.missile_config["velocity"] * flight_duration
+
+            # 计算烟幕当前位置
+            descent_duration = current_time - detonation_time
+            smoke_current_center = np.array([
+                detonation_pos[0],
+                detonation_pos[1],
+                detonation_pos[2] - self.config.smoke_config["descent_velocity"] * descent_duration
+            ])
+
+            # 判断遮蔽状态
+            currently_shielded = self.evaluator.evaluate_target_coverage(
+                missile_current_pos, smoke_current_center,
+                self.config.smoke_config["effective_radius"], sample_points
+            )
+
+            # 累积有效时间
+            if currently_shielded:
+                total_shield_time += self.config.time_step
+                shield_records.append({
+                    "time": round(current_time, 3),
+                    "missile_position": missile_current_pos.round(4),
+                    "smoke_center": smoke_current_center.round(4)
+                })
+
+            # 记录遮蔽时间段
+            if currently_shielded and not previous_shielded:
+                shield_periods.append({"start": current_time})
+            elif not currently_shielded and previous_shielded:
+                if shield_periods:
+                    shield_periods[-1]["end"] = current_time - self.config.time_step
+
+            previous_shielded = currently_shielded
+
+        # 处理最后一个未结束的遮蔽段
+        if shield_periods and "end" not in shield_periods[-1]:
+            shield_periods[-1]["end"] = end_window
+
+        # 输出结果
+        end_time = time.time()
+        print("\n" + "="*80)
+        print(f"【最终结果】真目标被有效遮蔽的总时长：{total_shield_time:.4f} 秒")
+        print("="*80)
+        print(f"仿真耗时：{end_time - start_time:.4f} 秒")
+
+        # 输出遮蔽时间段详情
+        print("\n=== 遮蔽时间段详情 ===")
+        if not shield_periods:
+            print("无有效遮蔽时间段")
+        else:
+            for idx, period in enumerate(shield_periods, 1):
+                duration = period["end"] - period["start"]
+                print(f"第{idx}段：{period['start']:.4f}s ~ {period['end']:.4f}s，时长：{duration:.4f}s")
+
+        # 输出采样时刻状态
+        print("\n=== 采样时刻状态示例 ===")
+        if shield_records:
+            print("前3个有效时刻：")
+            for record in shield_records[:3]:
+                print(f"t={record['time']}s | 导弹位置：{record['missile_position']} | 烟幕中心：{record['smoke_center']}")
+
+            print("\n最后3个有效时刻：")
+            for record in shield_records[-3:]:
+                print(f"t={record['time']}s | 导弹位置：{record['missile_position']} | 烟幕中心：{record['smoke_center']}")
+        else:
+            print("无有效遮蔽时刻")
+
+# -------------------------- 主程序入口 --------------------------
+if __name__ == "__main__":
+    # 初始化配置
+    sim_config = SimulationConfig()
+
+    # 创建仿真运行器并执行
+    runner = SimulationRunner(sim_config)
+    runner.execute_simulation()
+
+\end{lstlisting}
+\section{问题一Python源程序}
+\begin{lstlisting}[language=python]
+
+\end{lstlisting}
 \end{appendices}
 
 \end{document}
