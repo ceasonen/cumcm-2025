@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 import multiprocessing as mp
@@ -544,7 +544,7 @@ class ComprehensiveExperimentalManagementSystem:
         print("=" * 80)
         
         # 结果文件输出
-        with open('p2_new.txt', 'w', encoding='utf-8') as output_file:
+        with open('p2.txt', 'w', encoding='utf-8') as output_file:
             output_file.write("第二问最优烟幕弹投放策略\n")
             output_file.write("=" * 50 + "\n")
             output_file.write(f"无人机飞行方位角: {np.degrees(flight_azimuth_opt):.2f}°\n")
@@ -601,7 +601,7 @@ class ComprehensiveExperimentalManagementSystem:
         plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig('p2_new.png', dpi=300, bbox_inches='tight')
+        plt.savefig('p2.png', dpi=300, bbox_inches='tight')
         plt.show()
         
         print(f"\n分析报告已保存至: p2.txt")
