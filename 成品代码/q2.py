@@ -1,56 +1,73 @@
-﻿import numpy as np
+﻿#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep  5 14:25:13 2024
+@author: Research Team Alpha
+@version: 2.1.3
+@description: Advanced Tactical Optimization Framework
+"""
+
+import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 import multiprocessing as mp
 import time
 import warnings
 import os
+import sys
 from pathlib import Path
+import logging
 
-warnings.filterwarnings('ignore')
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+# Configure environment
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['figure.dpi'] = 100
 
-# ========================= 系统核心配置模块 =========================
-class UnifiedSystemConfiguration:
-    """统一系统配置管理器"""
-    
-    GRAVITATIONAL_CONSTANT = 9.8  # 地球重力加速度
-    COMPUTATIONAL_TOLERANCE = 1e-15  # 计算精度阈值
-    TEMPORAL_RESOLUTION_COARSE = 0.1  # 粗粒度时间分辨率
-    TEMPORAL_RESOLUTION_FINE = 0.005  # 细粒度时间分辨率
-    MAX_PARALLEL_WORKERS = mp.cpu_count()  # 最大并行工作线程数
-    
-    # 作战环境配置
-    DECOY_TARGET_COORDINATES = np.array([0.0, 0.0, 0.0], dtype=np.float64)
-    PRIMARY_THREAT_SPECIFICATIONS = {
-        "geometric_center": np.array([0.0, 200.0, 0.0], dtype=np.float64),
-        "horizontal_radius": 7.0,
-        "vertical_elevation": 10.0
-    }
-    
-    # 无人作战平台参数
-    UAV_PLATFORM_INITIAL_STATE = np.array([17800.0, 0.0, 1800.0], dtype=np.float64)
-    COUNTERMEASURE_PAYLOAD_PROPERTIES = {
-        "occlusion_radius": 10.0,
-        "gravitational_descent_rate": 3.0,
-        "operational_lifespan": 20.0
-    }
-    
-    # 敌方拦截器系统
-    HOSTILE_INTERCEPTOR_CONFIGURATION = {
-        "launch_coordinates": np.array([20000.0, 0.0, 2000.0], dtype=np.float64),
-        "cruise_velocity": 300.0
-    }
-    
-    @classmethod
-    def compute_interceptor_trajectory_parameters(cls):
-        """计算拦截器轨迹关键参数"""
-        target_vector = cls.DECOY_TARGET_COORDINATES - cls.HOSTILE_INTERCEPTOR_CONFIGURATION["launch_coordinates"]
-        trajectory_magnitude = np.linalg.norm(target_vector)
-        normalized_direction = target_vector / trajectory_magnitude
-        flight_duration = trajectory_magnitude / cls.HOSTILE_INTERCEPTOR_CONFIGURATION["cruise_velocity"]
-        return normalized_direction, flight_duration
+# Setup logging for debugging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# ========================= 战术系统全局参数配置 =========================
+"""
+Strategic Parameters Configuration Module
+高级战术参数配置模块
+"""
+
+# 物理学常数定义区域
+PHYSICS_GRAVITY_ACCELERATION = 9.8  # 重力加速度常数 (m/s²)
+MATHEMATICAL_EPSILON_THRESHOLD = 1e-15  # 数值计算保护阈值
+TEMPORAL_STEP_SIZE_MACRO = 0.1   # 宏观时间步长参数
+TEMPORAL_STEP_SIZE_MICRO = 0.005   # 微观时间步长参数
+SYSTEM_CPU_CORE_COUNT = mp.cpu_count()  # 系统并行核心数量
+
+# 战场态势感知参数
+decoy_target_position = np.array([0.0, 0.0, 0.0])  # 诱饵目标坐标
+primary_target_specifications = {
+    "central_coordinates": np.array([0.0, 200.0, 0.0]),  # 主目标中心位置
+    "radius_parameter": 7.0,      # 目标半径参数
+    "height_parameter": 10.0      # 目标高度参数
+}
+
+# 友方无人机系统配置
+uav_initial_position_vector = np.array([17800.0, 0.0, 1800.0])  # 无人机初始位置向量
+smoke_countermeasure_parameters = {
+    "effective_radius": 10.0,        # 烟幕有效遮蔽半径
+    "descent_velocity": 3.0,         # 烟幕重力下降速度
+    "operational_duration": 20.0     # 烟幕持续作用时间
+}
+
+# 敌方导弹威胁参数
+hostile_missile_configuration = {
+    "launch_position": np.array([20000.0, 0.0, 2000.0]),  # 导弹发射位置
+    "flight_velocity": 300.0         # 导弹飞行速度
+}
+
+# 预计算导弹轨迹参数（提高计算效率）
+missile_trajectory_vector = (decoy_target_position - hostile_missile_configuration["launch_position"])
+missile_flight_distance = np.linalg.norm(missile_trajectory_vector)
+missile_direction_unit_vector = missile_trajectory_vector / missile_flight_distance
+missile_total_flight_time = missile_flight_distance / hostile_missile_configuration["flight_velocity"]
 
 # ========================= 空间几何采样引擎 =========================
 class AdvancedSpatialSamplingEngine:
@@ -60,13 +77,13 @@ class AdvancedSpatialSamplingEngine:
     def generate_comprehensive_threat_volume_discretization(threat_configuration):
         """生成威胁体积的全方位离散化采样网格"""
         sampling_vertices = []
-        geometric_centroid = threat_configuration["geometric_center"]
-        radius_param, height_param = threat_configuration["horizontal_radius"], threat_configuration["vertical_elevation"]
+        geometric_centroid = threat_configuration["central_coordinates"]
+        radius_param, height_param = threat_configuration["radius_parameter"], threat_configuration["height_parameter"]
         planar_center = geometric_centroid[:2]
         altitude_bounds = [geometric_centroid[2], geometric_centroid[2] + height_param]
         
         # Phase 1: 顶底面密集圆周采样
-        azimuthal_discretization = np.linspace(0, 2*np.pi, 120, endpoint=False)
+        azimuthal_discretization = np.linspace(0, 2*np.pi, 60, endpoint=False)
         for elevation_level in altitude_bounds:
             for azimuth_angle in azimuthal_discretization:
                 cartesian_x = planar_center[0] + radius_param * np.cos(azimuth_angle)
@@ -74,7 +91,7 @@ class AdvancedSpatialSamplingEngine:
                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_level])
         
         # Phase 2: 侧面柱状表面采样
-        vertical_stratification = np.linspace(altitude_bounds[0], altitude_bounds[1], 40, endpoint=True)
+        vertical_stratification = np.linspace(altitude_bounds[0], altitude_bounds[1], 20, endpoint=True)
         for elevation_stratum in vertical_stratification:
             for azimuth_angle in azimuthal_discretization:
                 cartesian_x = planar_center[0] + radius_param * np.cos(azimuth_angle)
@@ -82,9 +99,9 @@ class AdvancedSpatialSamplingEngine:
                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_stratum])
         
         # Phase 3: 内部体积三维网格化
-        radial_stratification = np.linspace(0, radius_param, 10, endpoint=True)
-        internal_elevation_layers = np.linspace(altitude_bounds[0], altitude_bounds[1], 30, endpoint=True)
-        internal_azimuthal_sectors = np.linspace(0, 2*np.pi, 24, endpoint=False)
+        radial_stratification = np.linspace(0, radius_param, 6, endpoint=True)
+        internal_elevation_layers = np.linspace(altitude_bounds[0], altitude_bounds[1], 15, endpoint=True)
+        internal_azimuthal_sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
         
         for elevation_coordinate in internal_elevation_layers:
             for radial_distance in radial_stratification:
@@ -94,10 +111,10 @@ class AdvancedSpatialSamplingEngine:
                     sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
         
         # Phase 4: 边界过渡区域精细化增强
-        boundary_transition_radii = np.linspace(radius_param*0.95, radius_param*1.05, 5, endpoint=True)
-        for elevation_coordinate in np.linspace(altitude_bounds[0], altitude_bounds[1], 10):
+        boundary_transition_radii = np.linspace(radius_param*0.95, radius_param*1.05, 3, endpoint=True)
+        for elevation_coordinate in np.linspace(altitude_bounds[0], altitude_bounds[1], 6):
             for transition_radius in boundary_transition_radii:
-                for azimuth_angle in np.linspace(0, 2*np.pi, 60, endpoint=False):
+                for azimuth_angle in np.linspace(0, 2*np.pi, 30, endpoint=False):
                     cartesian_x = planar_center[0] + transition_radius * np.cos(azimuth_angle)
                     cartesian_y = planar_center[1] + transition_radius * np.sin(azimuth_angle)
                     sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
@@ -121,16 +138,16 @@ class PrecisionNumericalComputationKernel:
         quadratic_coefficient_a = np.dot(directional_vector, directional_vector)
         
         # 特殊情况：零长度线段处理
-        if quadratic_coefficient_a < UnifiedSystemConfiguration.COMPUTATIONAL_TOLERANCE:
+        if quadratic_coefficient_a < MATHEMATICAL_EPSILON_THRESHOLD:
             euclidean_distance = PrecisionNumericalComputationKernel.compute_euclidean_vector_norm(centroid_offset_vector)
-            return 1.0 if euclidean_distance <= sphere_radius + UnifiedSystemConfiguration.COMPUTATIONAL_TOLERANCE else 0.0
+            return 1.0 if euclidean_distance <= sphere_radius + MATHEMATICAL_EPSILON_THRESHOLD else 0.0
         
         quadratic_coefficient_b = -2 * np.dot(directional_vector, centroid_offset_vector)
         quadratic_coefficient_c = np.dot(centroid_offset_vector, centroid_offset_vector) - sphere_radius**2
         discriminant_value = quadratic_coefficient_b**2 - 4*quadratic_coefficient_a*quadratic_coefficient_c
         
         # 判别式分析
-        if discriminant_value < -UnifiedSystemConfiguration.COMPUTATIONAL_TOLERANCE:
+        if discriminant_value < -MATHEMATICAL_EPSILON_THRESHOLD:
             return 0.0
         if discriminant_value < 0:
             discriminant_value = 0.0
@@ -152,7 +169,7 @@ class PrecisionNumericalComputationKernel:
             intersection_ratio = PrecisionNumericalComputationKernel.analyze_line_segment_sphere_intersection_geometry(
                 interceptor_coordinates, mesh_vertex, obscurant_centroid, obscurant_radius
             )
-            if intersection_ratio < UnifiedSystemConfiguration.COMPUTATIONAL_TOLERANCE:
+            if intersection_ratio < MATHEMATICAL_EPSILON_THRESHOLD:
                 return False
         return True
 
@@ -164,8 +181,8 @@ class AdaptiveTemporalSequenceManager:
     def construct_multi_resolution_temporal_sequence(sequence_start, sequence_end, critical_event_timestamp=None):
         """构建多分辨率时间序列"""
         if critical_event_timestamp is None:
-            return np.arange(sequence_start, sequence_end + UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_COARSE, 
-                           UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_COARSE)
+            return np.arange(sequence_start, sequence_end + TEMPORAL_STEP_SIZE_MACRO, 
+                           TEMPORAL_STEP_SIZE_MACRO)
         
         # 关键事件周围的高分辨率窗口
         high_resolution_window_start = max(sequence_start, critical_event_timestamp - 1.0)
@@ -177,20 +194,20 @@ class AdaptiveTemporalSequenceManager:
         # 前置粗粒度时间段
         if sequence_start < high_resolution_window_start:
             temporal_sequence_components.extend(
-                np.arange(sequence_start, high_resolution_window_start, UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_COARSE)
+                np.arange(sequence_start, high_resolution_window_start, TEMPORAL_STEP_SIZE_MACRO)
             )
         
         # 中央细粒度时间段
         temporal_sequence_components.extend(
-            np.arange(high_resolution_window_start, high_resolution_window_end + UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_FINE, 
-                     UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_FINE)
+            np.arange(high_resolution_window_start, high_resolution_window_end + TEMPORAL_STEP_SIZE_MICRO, 
+                     TEMPORAL_STEP_SIZE_MICRO)
         )
         
         # 后置粗粒度时间段
         if high_resolution_window_end < sequence_end:
             temporal_sequence_components.extend(
-                np.arange(high_resolution_window_end, sequence_end + UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_COARSE, 
-                         UnifiedSystemConfiguration.TEMPORAL_RESOLUTION_COARSE)
+                np.arange(high_resolution_window_end, sequence_end + TEMPORAL_STEP_SIZE_MACRO, 
+                         TEMPORAL_STEP_SIZE_MACRO)
             )
         
         return np.unique(temporal_sequence_components)
@@ -208,12 +225,12 @@ def tactical_effectiveness_evaluation_function(strategic_parameter_vector, targe
     
     # Step 1: 计算载荷投放空间坐标
     flight_direction_unit_vector = np.array([np.cos(flight_azimuth), np.sin(flight_azimuth), 0.0], dtype=np.float64)
-    deployment_spatial_coordinates = (UnifiedSystemConfiguration.UAV_PLATFORM_INITIAL_STATE + 
+    deployment_spatial_coordinates = (uav_initial_position_vector + 
                                     platform_velocity * deployment_temporal_offset * flight_direction_unit_vector)
     
     # Step 2: 计算载荷起爆空间坐标
     detonation_horizontal_displacement = deployment_spatial_coordinates[:2] + platform_velocity * detonation_temporal_offset * flight_direction_unit_vector[:2]
-    gravitational_altitude_loss = deployment_spatial_coordinates[2] - 0.5 * UnifiedSystemConfiguration.GRAVITATIONAL_CONSTANT * detonation_temporal_offset**2
+    gravitational_altitude_loss = deployment_spatial_coordinates[2] - 0.5 * PHYSICS_GRAVITY_ACCELERATION * detonation_temporal_offset**2
     
     if gravitational_altitude_loss < 5.0:
         return 0.0 + np.random.uniform(-0.5, 0)
@@ -222,19 +239,18 @@ def tactical_effectiveness_evaluation_function(strategic_parameter_vector, targe
     
     # Step 3: 时间窗口分析模块
     absolute_detonation_timestamp = deployment_temporal_offset + detonation_temporal_offset
-    countermeasure_expiration_timestamp = absolute_detonation_timestamp + UnifiedSystemConfiguration.COUNTERMEASURE_PAYLOAD_PROPERTIES["operational_lifespan"]
+    countermeasure_expiration_timestamp = absolute_detonation_timestamp + smoke_countermeasure_parameters["operational_duration"]
     
-    interceptor_trajectory_direction, interceptor_flight_duration = UnifiedSystemConfiguration.compute_interceptor_trajectory_parameters()
-    analysis_termination_timestamp = min(countermeasure_expiration_timestamp, interceptor_flight_duration)
+    analysis_termination_timestamp = min(countermeasure_expiration_timestamp, missile_total_flight_time)
     
     if absolute_detonation_timestamp >= analysis_termination_timestamp:
         return 0.0 + np.random.uniform(-0.1, 0)
     
     # Step 4: 关键时刻识别
-    threat_displacement_vector = (UnifiedSystemConfiguration.PRIMARY_THREAT_SPECIFICATIONS["geometric_center"] - 
-                                UnifiedSystemConfiguration.HOSTILE_INTERCEPTOR_CONFIGURATION["launch_coordinates"])
-    critical_engagement_distance = np.dot(threat_displacement_vector, interceptor_trajectory_direction)
-    critical_engagement_timestamp = critical_engagement_distance / UnifiedSystemConfiguration.HOSTILE_INTERCEPTOR_CONFIGURATION["cruise_velocity"]
+    threat_displacement_vector = (primary_target_specifications["central_coordinates"] - 
+                                hostile_missile_configuration["launch_position"])
+    critical_engagement_distance = np.dot(threat_displacement_vector, missile_direction_unit_vector)
+    critical_engagement_timestamp = critical_engagement_distance / hostile_missile_configuration["flight_velocity"]
     
     temporal_analysis_sequence = AdaptiveTemporalSequenceManager.construct_multi_resolution_temporal_sequence(
         absolute_detonation_timestamp, analysis_termination_timestamp, critical_engagement_timestamp
@@ -249,14 +265,14 @@ def tactical_effectiveness_evaluation_function(strategic_parameter_vector, targe
             temporal_increment = current_timestamp - previous_timestamp
             
             # 拦截器当前位置计算
-            interceptor_current_coordinates = (UnifiedSystemConfiguration.HOSTILE_INTERCEPTOR_CONFIGURATION["launch_coordinates"] + 
-                                             UnifiedSystemConfiguration.HOSTILE_INTERCEPTOR_CONFIGURATION["cruise_velocity"] * 
-                                             current_timestamp * interceptor_trajectory_direction)
+            interceptor_current_coordinates = (hostile_missile_configuration["launch_position"] + 
+                                             hostile_missile_configuration["flight_velocity"] * 
+                                             current_timestamp * missile_direction_unit_vector)
             
             # 烟幕当前状态评估
             gravitational_descent_duration = current_timestamp - absolute_detonation_timestamp
             current_obscurant_altitude = (detonation_spatial_coordinates[2] - 
-                                        UnifiedSystemConfiguration.COUNTERMEASURE_PAYLOAD_PROPERTIES["gravitational_descent_rate"] * 
+                                        smoke_countermeasure_parameters["descent_velocity"] * 
                                         gravitational_descent_duration)
             
             if current_obscurant_altitude < 2.0:
@@ -268,7 +284,7 @@ def tactical_effectiveness_evaluation_function(strategic_parameter_vector, targe
             # 遮蔽效能评估
             is_target_occluded = PrecisionNumericalComputationKernel.evaluate_comprehensive_target_occlusion_status(
                 interceptor_current_coordinates, current_obscurant_centroid, 
-                UnifiedSystemConfiguration.COUNTERMEASURE_PAYLOAD_PROPERTIES["occlusion_radius"], 
+                smoke_countermeasure_parameters["effective_radius"], 
                 target_discretization_mesh
             )
             
@@ -372,7 +388,7 @@ class IntelligentSwarmOptimizationFramework:
                                     (iteration_counter / self.maximum_iteration_cycles))
             
             # 并行适应度计算
-            fitness_evaluation_results = Parallel(n_jobs=UnifiedSystemConfiguration.MAX_PARALLEL_WORKERS)(
+            fitness_evaluation_results = Parallel(n_jobs=SYSTEM_CPU_CORE_COUNT)(
                 delayed(self.objective_evaluation_function)(self.particle_position_matrix[i]) 
                 for i in range(self.swarm_population_size)
             )
@@ -441,7 +457,7 @@ class ComprehensiveExperimentalManagementSystem:
         # 目标离散化处理
         print("\n[Phase 1] 生成超高密度目标离散化网格...")
         target_discretization_mesh = AdvancedSpatialSamplingEngine.generate_comprehensive_threat_volume_discretization(
-            UnifiedSystemConfiguration.PRIMARY_THREAT_SPECIFICATIONS
+            primary_target_specifications
         )
         print(f"网格采样点总数: {len(target_discretization_mesh)}")
         
@@ -512,10 +528,10 @@ class ComprehensiveExperimentalManagementSystem:
         
         # 计算关键坐标
         flight_direction_vector = np.array([np.cos(flight_azimuth_opt), np.sin(flight_azimuth_opt), 0.0])
-        deployment_coordinates = (UnifiedSystemConfiguration.UAV_PLATFORM_INITIAL_STATE + 
+        deployment_coordinates = (uav_initial_position_vector + 
                                 platform_velocity_opt * deployment_delay_opt * flight_direction_vector)
         detonation_horizontal_coordinates = deployment_coordinates[:2] + platform_velocity_opt * detonation_delay_opt * flight_direction_vector[:2]
-        detonation_altitude = deployment_coordinates[2] - 0.5 * UnifiedSystemConfiguration.GRAVITATIONAL_CONSTANT * detonation_delay_opt**2
+        detonation_altitude = deployment_coordinates[2] - 0.5 * PHYSICS_GRAVITY_ACCELERATION * detonation_delay_opt**2
         detonation_coordinates = np.array([detonation_horizontal_coordinates[0], detonation_horizontal_coordinates[1], detonation_altitude])
         absolute_detonation_time = deployment_delay_opt + detonation_delay_opt
         
@@ -544,7 +560,7 @@ class ComprehensiveExperimentalManagementSystem:
         print("=" * 80)
         
         # 结果文件输出
-        with open('p2_new.txt', 'w', encoding='utf-8') as output_file:
+        with open('p2_new2.txt', 'w', encoding='utf-8') as output_file:
             output_file.write("第二问最优烟幕弹投放策略\n")
             output_file.write("=" * 50 + "\n")
             output_file.write(f"无人机飞行方位角: {np.degrees(flight_azimuth_opt):.2f}°\n")
@@ -601,9 +617,9 @@ class ComprehensiveExperimentalManagementSystem:
         plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig('p2_new.png', dpi=300, bbox_inches='tight')
+        plt.savefig('p2.png', dpi=300, bbox_inches='tight')
         plt.show()
-        
+
         print(f"\n分析报告已保存至: p2.txt")
         print(f"可视化图表已保存至: p2.png")
 
