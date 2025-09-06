@@ -1,38 +1,52 @@
+"""
+第四问：三无人机协同投放策略优化（FY1参数固定版本）
+- 固定FY1为第二问最优参数
+- 仅优化FY2和FY3的参数
+- 采用粒子群算法求解最优投放策略
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from joblib import Parallel, delayed
 import multiprocessing
 import time
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+# ======================================================================================
+# 1. 系统参数与常量定义
+# ======================================================================================
 
-# -------------------------- 1. 常量与参数定义（扩展多无人机） --------------------------
-g = 9.81 # 重力加速度 (m/s²)
-epsilon = 1e-15 # 数值保护阈值
-dt_coarse = 0.1 # 粗算时间步长
-dt_fine = 0.005 # 关键时段精细步长
-n_jobs = multiprocessing.cpu_count() # 并行计算核心数
+# 物理常量
+g = 9.8                    # 重力加速度 (m/s²)
+epsilon = 1e-15            # 数值计算保护阈值
+dt_coarse = 0.1           # 粗略时间步长 (s)
+dt_fine = 0.005           # 精细时间步长 (s)
+n_jobs = multiprocessing.cpu_count()  # 并行计算核心数
 
-# 目标定义（与第二问一致）
+# 虚假目标点定义
 fake_target = np.array([0.0, 0.0, 0.0])
+
+# 真实目标区域定义（圆柱形）
 real_target = {
-    "center": np.array([0.0, 200.0, 0.0]),
-    "r": 7.0,
-    "h": 10.0
+    "center": np.array([0.0, 200.0, 0.0]),  # 圆柱底面中心
+    "r": 7.0,                                # 圆柱半径 (m)
+    "h": 10.0                               # 圆柱高度 (m)
 }
 
-# 无人机初始位置（第四问涉及FY1/FY2/FY3）
+# 三架无人机初始位置
 uav_init_positions = {
     "FY1": np.array([17800.0, 0.0, 1800.0]),
     "FY2": np.array([12000.0, 1400.0, 1400.0]),
     "FY3": np.array([6000.0, -3000.0, 700.0])
 }
-uav_names = ["FY1", "FY2", "FY3"] # 无人机顺序
+uav_names = ["FY1", "FY2", "FY3"]
 
-# 烟幕与导弹参数（与第二问一致）
+# 烟幕弹参数
 smoke_param = {
-    "r": 10.0,
-    "sink_speed": 3.0,
-    "valid_time": 20.0
+    "r": 10.0,              # 烟幕半径 (m)
+    "sink_speed": 3.0,      # 下沉速度 (m/s)
+    "valid_time": 20.0      # 有效持续时间 (s)
 }
 
 # 导弹M1参数
