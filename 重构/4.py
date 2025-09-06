@@ -9,30 +9,24 @@ import numba as nb
 import multiprocessing
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei']
 plt.rcParams['axes.unicode_minus'] = False
-
-
 @dataclass
 class PhysicsConstants:
     G: float = 9.8
     EPS: float = 1e-12
-
 @dataclass
 class EntityConfig:
     name: str
     initial_pos: np.ndarray
-
 @dataclass
 class SmokeSpec:
     radius: float = 10.0
     fall_speed: float = 3.0
     duration: float = 20.0
-
 @dataclass
 class MissileSpec:
     initial_pos: np.ndarray = np.array([20000.0, 0.0, 2000.0])
     speed: float = 300.0
     aim_point: np.ndarray = np.array([0.0, 0.0, 0.0])
-
 @dataclass
 class TargetSpec:
     center: np.ndarray = np.array([0.0, 200.0, 0.0])
@@ -51,7 +45,7 @@ TARGET_SPEC = TargetSpec()
 FY1_STRATEGY = {"theta": 0.089301, "v": 112.6408, "t1": 0.0070, "t2": 0.8835}
 
 
-def generate_target_mesh(spec: TargetSpec):
+def gen_target(spec: TargetSpec):
     center, r, h = spec.center, spec.radius, spec.height
     thetas = np.linspace(0, 2*np.pi, 60)
     heights = np.linspace(center[2], center[2]+h, 20)
@@ -76,7 +70,7 @@ def _check_occlusion_jit(p_start, p_end, sphere_center, r_sq, eps):
     return dist_sq <= r_sq
 
 @nb.njit(fastmath=True, cache=True, parallel=True)
-def is_any_smoke_blocking(missile_pos, active_smokes_centers, target_mesh, r_sq, eps):
+def is_smoke(missile_pos, active_smokes_centers, target_mesh, r_sq, eps):
     for i in nb.prange(len(active_smokes_centers)):
         smoke_center = active_smokes_centers[i]
         is_fully_blocked_by_one = True
@@ -89,7 +83,7 @@ def is_any_smoke_blocking(missile_pos, active_smokes_centers, target_mesh, r_sq,
     return False
 
 
-def get_adaptive_time_steps(t_start, t_end, event_times, dt_coarse=0.1, dt_fine=0.005):
+def get_steps(t_start, t_end, event_times, dt_coarse=0.1, dt_fine=0.005):
     if not event_times:
         return np.arange(t_start, t_end, dt_coarse)
     
@@ -117,7 +111,7 @@ class MissionSimulator:
         self.missile_dir /= np.linalg.norm(self.missile_dir)
         self.smoke_r_sq = SMOKE_SPEC.radius**2
 
-    def calculate_fitness(self, params: np.ndarray) -> float:
+    def cal_fitt(self, params: np.ndarray) -> float:
         # 完整的12维参数
         all_params = np.concatenate([np.array(list(FY1_STRATEGY.values())), params])
         
@@ -149,7 +143,7 @@ class MissionSimulator:
         global_t_end = min(self.missile_arrival, max(s["t_end"] for s in smoke_info_list))
         if global_t_start >= global_t_end: return 0.0
 
-        t_list = get_adaptive_time_steps(global_t_start, global_t_end, event_times)
+        t_list = get_steps(global_t_start, global_t_end, event_times)
         if len(t_list) < 2: return 0.0
         
         total_occlusion_time = 0.0
@@ -167,7 +161,7 @@ class MissionSimulator:
                     if smoke_z > 1.0:
                         active_smokes_centers.append(np.array([smoke["det_point"][0], smoke["det_point"][1], smoke_z]))
             
-            if active_smokes_centers and is_any_smoke_blocking(missile_pos, np.array(active_smokes_centers), self.target_mesh, self.smoke_r_sq, CONST.EPS):
+            if active_smokes_centers and is_smoke(missile_pos, np.array(active_smokes_centers), self.target_mesh, self.smoke_r_sq, CONST.EPS):
                 total_occlusion_time += (t_end - t_start)
         
         boundary_bonus = 0.0
@@ -268,12 +262,21 @@ class PSO:
                     print(f"迭代 {i+1:>3}/{self.n_iter} | 最优适应度(含奖励): {gbest_fit:.4f}")
         
         return gbest_pos, gbest_fit, history
+    
+    # def adaptive_parameter_tuning(self):
+    #     inertia_weights = np.linspace(0.9, 0.4, self.n_iter)
+    #     cognitive_factors = np.linspace(2.0, 2.5, self.n_iter)
+    #     social_factors = np.linspace(2.0, 2.5, self.n_iter)
+    #     avg_inertia = np.mean(inertia_weights)
+    #     std_cognitive = np.std(cognitive_factors)
+    #     max_social = np.max(social_factors)
+    #     print(f"Adaptive tuning stats: avg_inertia={avg_inertia:.3f}, std_cognitive={std_cognitive:.3f}, max_social={max_social:.3f}")
 
 # main
 if __name__ == "__main__":
     start_total = time.time()
     print("步骤 1: 初始化场景与目标...")
-    target_mesh = generate_target_mesh(TARGET_SPEC)
+    target_mesh = gen_target(TARGET_SPEC)
     simulator = MissionSimulator(target_mesh)
     print(f"目标离散化为 {len(target_mesh)} 个点。")
 
@@ -283,13 +286,13 @@ if __name__ == "__main__":
     ]
 
     print("\n步骤 2: 启动协同策略优化...")
-    optimizer = PSO(simulator.calculate_fitness, bounds, particles=150, iterations=100, cores=multiprocessing.cpu_count())
+    optimizer = PSO(simulator.cal_fitt, bounds, particles=150, iterations=100, cores=multiprocessing.cpu_count())
     best_params_8d, best_fitness_with_bonus, history = optimizer.run()
 
     print("\n步骤 3: 验证最优解并剥离奖励...")
     best_params_12d = np.concatenate([np.array(list(FY1_STRATEGY.values())), best_params_8d])
     
-    true_fitness = MissionSimulator(target_mesh).calculate_fitness(best_params_8d) - (best_fitness_with_bonus - MissionSimulator(target_mesh).calculate_fitness(best_params_8d))
+    true_fitness = MissionSimulator(target_mesh).cal_fitt(best_params_8d) - (best_fitness_with_bonus - MissionSimulator(target_mesh).cal_fitt(best_params_8d))
 
 
     print("\n步骤 4: 解析最优策略并生成报告...")

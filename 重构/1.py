@@ -17,7 +17,7 @@ G = 9.8
 DT = 0.001
 EPS = 1e-15
 
-def calculate_key_events():
+def calculate():
     vec_h = P_AIM[:2] - P_UAV_INIT[:2]
     dir_h = vec_h / np.linalg.norm(vec_h)
     
@@ -32,7 +32,7 @@ def calculate_key_events():
     t_detonation = S_PARAMS["d1"] + S_PARAMS["d2"]
     return p_detonation, t_detonation
 
-# def generate_target_cloud(geom, n_h=6, n_a=20):
+# def gen_cloud(geom, n_h=6, n_a=20):
 #     base, r, h = geom["base"], geom["r"], geom["h"]
 #     heights = np.linspace(base[2], base[2] + h, n_h)
 #     angles = np.linspace(0, 2 * np.pi, n_a, endpoint=False)
@@ -42,7 +42,7 @@ def calculate_key_events():
 #               for z in heights for a in angles]
 #
 #     return np.array(list(set(cloud)))
-# def check_los_block(m_pos, t_pos, s_center, s_r):
+# def che_block(m_pos, t_pos, s_center, s_r):
 
 #     line_vec = t_pos - m_pos
 #     oc_vec = s_center - m_pos
@@ -57,7 +57,7 @@ def calculate_key_events():
 #     closest_pt = m_pos + line_vec * proj
 #     return np.linalg.norm(closest_pt - s_center) <= s_r
 
-def generate_target_cloud(geom, n_h=6, n_a=20):
+def gen_cloud(geom, n_h=6, n_a=20):
     base, r, h = geom["base"], geom["r"], geom["h"]
     heights = np.linspace(base[2], base[2] + h, n_h)
     angles = np.linspace(0, 2 * np.pi, n_a, endpoint=False)
@@ -69,7 +69,7 @@ def generate_target_cloud(geom, n_h=6, n_a=20):
     
     return np.array(list(set(cloud))) 
 
-def check_los_block(m_pos, t_pos, s_center, s_r):
+def che_block(m_pos, t_pos, s_center, s_r):
     line_vec = t_pos - m_pos
     oc_vec = s_center - m_pos
     
@@ -84,8 +84,8 @@ def check_los_block(m_pos, t_pos, s_center, s_r):
 def main_process():
     t0 = time.perf_counter()
     
-    p_det, t_det = calculate_key_events()
-    target_points = generate_target_cloud(T_GEOM)
+    p_det, t_det = calculate()
+    target_points = gen_cloud(T_GEOM)
     
     time_axis = np.arange(t_det, t_det + S_PARAMS["life"], DT)
     
@@ -100,7 +100,7 @@ def main_process():
     is_blocked_timeline = np.zeros(len(time_axis), dtype=bool)
     for i in range(len(time_axis)):
         # 只有当所有目标点都被遮挡时，才算完全遮蔽
-        all_blocked = all(check_los_block(m_trajectory[i], pt, s_trajectory[i], S_PARAMS["r"]) for pt in target_points)
+        all_blocked = all(che_block(m_trajectory[i], pt, s_trajectory[i], S_PARAMS["r"]) for pt in target_points)
         if all_blocked:
             is_blocked_timeline[i] = True
 

@@ -20,8 +20,50 @@ SCENARIO = {
     "optimizer": {
         "bounds": [(0.0, 2 * np.pi), (70.0, 140.0), (0.0, 80.0), (0.0, 25.0)],
         "particles": 120, "iterations": 150, "w_range": (0.85, 0.25), "c1": 2.8, "c2": 2.8,
-    }#测试过能使用的参数配置，已验证可行
-}
+    }
+}#测试过能使用的参数配置，已验证可行
+
+
+# def gen_tgt(target_cfg):
+#     r, h, base = target_cfg["radius"], target_cfg["height"], target_cfg["base_center"]
+#     sampling_vertices = []
+#     altitude_bounds = [base[2], base[2] + h]
+#     planar_center = base[:2]
+    
+#     azimuthal_discretization = np.linspace(0, 2*np.pi, 59, endpoint=False)
+#     for elevation_level in altitude_bounds:
+#         for azimuth_angle in azimuthal_discretization:
+#             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
+#             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
+#             sampling_vertices.append([cartesian_x, cartesian_y, elevation_level])
+    
+#     vertical_stratification = np.linspace(altitude_bounds[0], altitude_bounds[1], 18, endpoint=True)
+#     for elevation_stratum in vertical_stratification:
+#         for azimuth_angle in azimuthal_discretization:
+#             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
+#             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
+#             sampling_vertices.append([cartesian_x, cartesian_y, elevation_stratum])
+    
+#     radial_stratification = np.linspace(0, r, 5, endpoint=True)
+#     internal_elevation_layers = np.linspace(altitude_bounds[0], altitude_bounds[1], 12, endpoint=True)
+#     internal_azimuthal_sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
+    
+#     for elevation_coordinate in internal_elevation_layers:
+#         for radial_distance in radial_stratification:
+#             for azimuthal_orientation in internal_azimuthal_sectors:
+#                 cartesian_x = planar_center[0] + radial_distance * np.cos(azimuthal_orientation)
+#                 cartesian_y = planar_center[1] + radial_distance * np.sin(azimuthal_orientation)
+#                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+    
+#     boundary_transition_radii = np.linspace(r*0.95, r*1.05, 3, endpoint=True)
+#     for elevation_coordinate in np.linspace(altitude_bounds[0], altitude_bounds[1], 6):
+#         for transition_radius in boundary_transition_radii:
+#             for azimuth_angle in np.linspace(0, 2*np.pi, 25, endpoint=False):
+#                 cartesian_x = planar_center[0] + transition_radius * np.cos(azimuth_angle)
+#                 cartesian_y = planar_center[1] + transition_radius * np.sin(azimuth_angle)
+#                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+    
+#     return np.unique(np.array(sampling_vertices, dtype=np.float64), axis=0)
 
 # 核心计算函数
 def gen_tgt(target_cfg):
@@ -65,6 +107,7 @@ def gen_tgt(target_cfg):
     
     return np.unique(np.array(sampling_vertices, dtype=np.float64), axis=0)
 
+# 引入numba的并行计算功能，大幅提升性能
 @nb.njit(fastmath=True, cache=True)
 def chk_line(p_start, p_end, sphere_center, r_sq, eps):
     v = p_end - p_start
@@ -91,7 +134,7 @@ def chk_line(p_start, p_end, sphere_center, r_sq, eps):
     end = min(1.0, max(t1, t2))
     
     return (end - start) > eps
-# 引入nubda的并行计算功能，大幅提升性能
+
 @nb.njit(fastmath=True, cache=True, parallel=True)
 def chk_tgt(m_pos, s_pos, r_sq, target_mesh, eps):
     for i in nb.prange(len(target_mesh)):

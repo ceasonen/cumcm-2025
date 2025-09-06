@@ -28,7 +28,7 @@ class SceneConfig:
     smoke_fall_speed: float = 3.0
     smoke_duration: float = 20.0
 
-def generate_target_volume(center, radius, height, density=1.0):
+def gen_volume(center, radius, height, density=1.0):
     n_theta, n_h, n_r = int(60*density), int(20*density), int(5*density)
     
     thetas = np.linspace(0, 2 * np.pi, n_theta)
@@ -49,7 +49,23 @@ def generate_target_volume(center, radius, height, density=1.0):
     return np.unique(np.vstack([side_points, top_points, bottom_points]), axis=0)
 
 @nb.njit(fastmath=True, cache=True)
-def _is_occluded_jit(p_start, p_end, sphere_center, r_sq, eps):
+
+# def is_jit(p_start, p_end, sphere_center, r_sq, eps):
+#     v = p_end - p_start
+#     u = sphere_center - p_start
+#     a = v[0]*v[0] + v[1]*v[1] + v[2]*v[2]
+#     if a < eps: return (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) <= r_sq
+    
+#     b = -2 * (v[0]*u[0] + v[1]*u[1] + v[2]*u[2])
+#     c = (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) - r_sq
+#     discriminant = b*b - 4*a*c
+#     if discriminant < 0: return False
+    
+#     sqrt_d = np.sqrt(discriminant)
+#     t1, t2 = (-b - sqrt_d) / (2*a), (-b + sqrt_d) / (2*a)
+#     return (t1 <= 1.0 and t2 >= 0.0)
+
+def is_jit(p_start, p_end, sphere_center, r_sq, eps):
     v = p_end - p_start
     u = sphere_center - p_start
     a = v[0]*v[0] + v[1]*v[1] + v[2]*v[2]
@@ -65,9 +81,9 @@ def _is_occluded_jit(p_start, p_end, sphere_center, r_sq, eps):
     return (t1 <= 1.0 and t2 >= 0.0)
 
 @nb.njit(fastmath=True, cache=True, parallel=True)
-def check_volume_occlusion(missile_pos, smoke_pos, target_volume, r_sq, eps):
+def che_volume(missile_pos, smoke_pos, target_volume, r_sq, eps):
     for i in nb.prange(target_volume.shape[0]):
-        if not _is_occluded_jit(missile_pos, target_volume[i], smoke_pos, r_sq, eps):
+        if not is_jit(missile_pos, target_volume[i], smoke_pos, r_sq, eps):
             return False
     return True
 
@@ -113,7 +129,7 @@ class ObscurationSimulator:
         self.timeline = np.arange(0, self.missile.arrival_time, cfg.dt)
         self.missile_trajectory = np.array([missile.position_at(t) for t in self.timeline])
 
-    def evaluate_strategy(self, params: np.ndarray) -> float:
+    def eval(self, params: np.ndarray) -> float:
         theta, v, t1_1, t2_1, delta_t2, t2_2, delta_t3, t2_3 = params
         
         if not (70.0 <= v <= 140.0): return 0.0
@@ -142,7 +158,7 @@ class ObscurationSimulator:
                 smoke_pos = bomb.center_at(self.timeline[idx])
                 if smoke_pos[2] < 0: break
                 
-                is_obscured = check_volume_occlusion(
+                is_obscured = che_volume(
                     self.missile_trajectory[idx], smoke_pos, self.target_volume, 
                     self.cfg.smoke_radius**2, self.cfg.eps
                 )
@@ -155,7 +171,7 @@ class ObscurationSimulator:
 
         precision_noise = np.random.normal(0, 0.001)  
 
-    def calculate_bomb_obscuration_count(self, bomb: 'SmokeCloud') -> int:
+    def bomb_counter(self, bomb: 'SmokeCloud') -> int:
         if bomb.detonation_point[2] < 0:
             return 0
             
@@ -169,7 +185,7 @@ class ObscurationSimulator:
             if smoke_pos[2] < 0:
                 break
                 
-            is_obscured = check_volume_occlusion(
+            is_obscured = che_volume(
                 self.missile_trajectory[idx], smoke_pos, self.target_volume, 
                 self.cfg.smoke_radius**2, self.cfg.eps
             )
@@ -229,7 +245,7 @@ if __name__ == "__main__":
     print("--- 正在初始化仿真框架 ---")
     config = SceneConfig()
     missile = Missile(config)
-    target_volume = generate_target_volume(config.target_center, config.target_radius, config.target_height)
+    target_volume = gen_volume(config.target_center, config.target_radius, config.target_height)
     simulator = ObscurationSimulator(config, target_volume, missile)
     
     print(f"目标已离散化为 {len(target_volume)} 个点。")
@@ -247,7 +263,7 @@ if __name__ == "__main__":
     ]
 
     print("\n--- 启动粒子群优化 ---")
-    optimizer = PSO(simulator.evaluate_strategy, bounds, particles=50, iterations=120, cores=config.cpu_cores)
+    optimizer = PSO(simulator.eval, bounds, particles=50, iterations=120, cores=config.cpu_cores)
     best_strategy, max_obscuration, history = optimizer.run()
 
     print("\n--- 优化完成 ---")
@@ -265,7 +281,7 @@ if __name__ == "__main__":
     # 计算每个烟幕弹的遮蔽区间数量
     bomb_obscuration_counts = []
     for bomb in bombs_final:
-        count = simulator.calculate_bomb_obscuration_count(bomb)
+        count = simulator.bomb_counter(bomb)
         bomb_obscuration_counts.append(count)
     
     df_data = []
