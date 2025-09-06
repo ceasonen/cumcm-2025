@@ -1,38 +1,52 @@
+"""
+第四问：三无人机协同投放策略优化（完整版本）
+- 同时优化FY1、FY2、FY3三架无人机的参数
+- 采用粒子群算法求解最优投放策略
+- 实现三无人机协同遮蔽效果最大化
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from joblib import Parallel, delayed
 import multiprocessing
 import time
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+# ======================================================================================
+# 1. 系统参数与常量定义
+# ======================================================================================
 
-# -------------------------- 1. 常量与参数定义（扩展多无人机） --------------------------
-g = 9.81 # 重力加速度 (m/s²)
-epsilon = 1e-15 # 数值保护阈值
-dt_coarse = 0.1 # 粗算时间步长
-dt_fine = 0.005 # 关键时段精细步长
-n_jobs = multiprocessing.cpu_count() # 并行计算核心数
+# 物理常量
+g = 9.81                    # 重力加速度 (m/s²)
+epsilon = 1e-15            # 数值计算保护阈值
+dt_coarse = 0.1           # 粗略时间步长 (s)
+dt_fine = 0.005           # 精细时间步长 (s)
+n_jobs = multiprocessing.cpu_count()  # 并行计算核心数
 
-# 目标定义（与第二问一致）
+# 虚假目标点定义
 fake_target = np.array([0.0, 0.0, 0.0])
+
+# 真实目标区域定义（圆柱形）
 real_target = {
-    "center": np.array([0.0, 200.0, 0.0]),
-    "r": 7.0,
-    "h": 10.0
+    "center": np.array([0.0, 200.0, 0.0]),  # 圆柱底面中心
+    "r": 7.0,                                # 圆柱半径 (m)
+    "h": 10.0                               # 圆柱高度 (m)
 }
 
-# 无人机初始位置（第四问涉及FY1/FY2/FY3）
+# 三架无人机初始位置
 uav_init_positions = {
     "FY1": np.array([17800.0, 0.0, 1800.0]),
     "FY2": np.array([12000.0, 1400.0, 1400.0]),
     "FY3": np.array([6000.0, -3000.0, 700.0])
 }
-uav_names = ["FY1", "FY2", "FY3"] # 无人机顺序
+uav_names = ["FY1", "FY2", "FY3"]
 
-# 烟幕与导弹参数（与第二问一致）
+# 烟幕弹参数
 smoke_param = {
-    "r": 10.0,
-    "sink_speed": 3.0,
-    "valid_time": 20.0
+    "r": 10.0,              # 烟幕半径 (m)
+    "sink_speed": 3.0,      # 下沉速度 (m/s)
+    "valid_time": 20.0      # 有效持续时间 (s)
 }
 
 # 导弹M1参数
@@ -46,18 +60,7 @@ missile_dir = (fake_target - missile_param["init_pos"]) / np.linalg.norm(fake_ta
 missile_arrival_time = np.linalg.norm(fake_target - missile_param["init_pos"]) / missile_param["speed"]
 
 # ======================================================================================
-# 2. FY1固定参数（来自第二问优化结果）
-# ======================================================================================
-
-FY1_FIXED_PARAMS = np.array([
-    0.137353,   # theta: 飞行方向角 (rad)
-    112.0298,   # v: 飞行速度 (m/s)
-    0.0045,     # t1: 投放延迟 (s)
-    0.4950      # t2: 起爆延迟 (s)
-])
-
-# ======================================================================================
-# 3. 目标区域采样点生成
+# 2. 目标区域采样点生成
 # ======================================================================================
 
 def generate_ultra_dense_samples(target):
@@ -72,7 +75,7 @@ def generate_ultra_dense_samples(target):
     min_z, max_z = center[2], center[2] + h
 
     # 外表面采样（顶面/底面圆周）- 中等密度
-    theta_dense = np.linspace(0, 2*np.pi, 60, endpoint=False)  # 24->60
+    theta_dense = np.linspace(0, 2*np.pi, 60, endpoint=False)
     for z in [min_z, max_z]:
         for th in theta_dense:
             x = center_xy[0] + r * np.cos(th)
@@ -80,7 +83,7 @@ def generate_ultra_dense_samples(target):
             samples.append([x, y, z])
 
     # 侧面采样（高度方向加密）- 增加高度层数
-    heights_dense = np.linspace(min_z, max_z, 20, endpoint=True)  # 8->20
+    heights_dense = np.linspace(min_z, max_z, 20, endpoint=True)
     for z in heights_dense:
         for th in theta_dense:
             x = center_xy[0] + r * np.cos(th)
@@ -88,9 +91,9 @@ def generate_ultra_dense_samples(target):
             samples.append([x, y, z])
 
     # 内部三维网格采样 - 适度增加密度
-    radii = np.linspace(0, r, 6, endpoint=True)  # 4->6
-    inner_heights = np.linspace(min_z, max_z, 15, endpoint=True)  # 6->15
-    inner_thetas = np.linspace(0, 2*np.pi, 12, endpoint=False)  # 8->12
+    radii = np.linspace(0, r, 6, endpoint=True)
+    inner_heights = np.linspace(min_z, max_z, 15, endpoint=True)
+    inner_thetas = np.linspace(0, 2*np.pi, 12, endpoint=False)
     
     for z in inner_heights:
         for rad in radii:
@@ -100,10 +103,10 @@ def generate_ultra_dense_samples(target):
                 samples.append([x, y, z])
 
     # 边缘过渡区采样 - 增加边界精度
-    edge_radii = np.linspace(r*0.95, r*1.05, 4, endpoint=True)  # 3->4
-    for z in np.linspace(min_z, max_z, 8):  # 4->8
+    edge_radii = np.linspace(r*0.95, r*1.05, 4, endpoint=True)
+    for z in np.linspace(min_z, max_z, 8):
         for rad in edge_radii:
-            for th in np.linspace(0, 2*np.pi, 20, endpoint=False):  # 12->20
+            for th in np.linspace(0, 2*np.pi, 20, endpoint=False):
                 x = center_xy[0] + rad * np.cos(th)
                 y = center_xy[1] + rad * np.sin(th)
                 samples.append([x, y, z])
@@ -111,7 +114,7 @@ def generate_ultra_dense_samples(target):
     return np.unique(np.array(samples), axis=0)
 
 # ======================================================================================
-# 4. 几何计算与遮蔽判定算法
+# 3. 几何计算与遮蔽判定算法
 # ======================================================================================
 
 def vector_norm(v):
@@ -167,7 +170,7 @@ def is_any_smoke_effective(missile_pos, smoke_list, target_samples):
     return False
 
 # ======================================================================================
-# 5. 自适应时间步长生成
+# 4. 自适应时间步长生成
 # ======================================================================================
 
 def get_adaptive_time_steps(t_start, t_end, event_times=None):
@@ -218,21 +221,19 @@ def get_adaptive_time_steps(t_start, t_end, event_times=None):
     return np.unique(times)
 
 # ======================================================================================
-# 6. 适应度函数（多无人机联合优化）
+# 5. 适应度函数（多无人机联合优化）
 # ======================================================================================
 
 def fitness_function(params, target_samples):
     """
     计算三无人机协同策略的总遮蔽时长
-    params: 12维参数向量
-    前4维：FY1参数（固定值）
-    中4维：FY2参数（待优化）
-    后4维：FY3参数（待优化）
+    params: 12维参数向量 [theta1, v1, t1_1, t2_1, theta2, v2, t1_2, t2_2, theta3, v3, t1_3, t2_3]
+    每个无人机4个参数：飞行方向角、速度、投放延迟、起爆延迟
     """
     # 解析各无人机参数
-    fy1_params = params[0:4]
-    fy2_params = params[4:8]
-    fy3_params = params[8:12]
+    fy1_params = params[0:4]    # FY1参数
+    fy2_params = params[4:8]    # FY2参数
+    fy3_params = params[8:12]   # FY3参数
     all_uav_params = [fy1_params, fy2_params, fy3_params]
 
     # 约束检查与烟幕信息收集
@@ -343,19 +344,18 @@ def fitness_function(params, target_samples):
     return total_shield_time + boundary_bonus
 
 # ======================================================================================
-# 7. 粒子群优化算法（固定FY1参数版本）
+# 6. 粒子群优化算法（完整版本）
 # ======================================================================================
 
 class ParticleSwarmOptimizer:
     """
-    粒子群优化器：固定FY1参数，仅优化FY2和FY3
+    粒子群优化器：同时优化三架无人机的所有参数
     """
     
-    def __init__(self, objective_func, bounds, fixed_fy1_params, num_particles=50, max_iter=100,
+    def __init__(self, objective_func, bounds, num_particles=50, max_iter=100,
                  c1=1.5, c2=1.5, w_start=0.9, w_end=0.4):
         self.objective_func = objective_func
         self.bounds = bounds
-        self.fixed_fy1_params = fixed_fy1_params
         self.num_particles = num_particles
         self.max_iter = max_iter
         self.c1 = c1              # 认知系数
@@ -364,28 +364,18 @@ class ParticleSwarmOptimizer:
         self.w_end = w_end        # 结束惯性权重
 
         self.dim = len(bounds)
-        self.optimize_dim_idx = list(range(4, 12))  # FY2/FY3参数索引
-        self.fixed_dim_idx = list(range(0, 4))      # FY1参数索引
-        
         self._init_particles()
 
     def _init_particles(self):
         """初始化粒子群"""
         # 位置初始化
         self.positions = np.zeros((self.num_particles, self.dim))
+        self.velocities = np.zeros((self.num_particles, self.dim))
+
         for i in range(self.num_particles):
-            # 固定FY1参数
-            self.positions[i, self.fixed_dim_idx] = self.fixed_fy1_params
-            # 随机初始化FY2/FY3参数
-            for j in self.optimize_dim_idx:
+            for j in range(self.dim):
                 min_val, max_val = self.bounds[j]
                 self.positions[i, j] = np.random.uniform(min_val, max_val)
-
-        # 速度初始化
-        self.velocities = np.zeros((self.num_particles, self.dim))
-        for i in range(self.num_particles):
-            for j in self.optimize_dim_idx:
-                min_val, max_val = self.bounds[j]
                 vel_range = max_val - min_val
                 self.velocities[i, j] = np.random.uniform(-0.1*vel_range, 0.1*vel_range)
 
@@ -403,9 +393,6 @@ class ParticleSwarmOptimizer:
 
     def _constrain_pos(self, pos, dim):
         """位置约束"""
-        if dim in self.fixed_dim_idx:
-            return self.fixed_fy1_params[dim]
-        
         min_val, max_val = self.bounds[dim]
         if pos < min_val:
             return min_val + 0.01 * np.random.randn()
@@ -415,9 +402,6 @@ class ParticleSwarmOptimizer:
 
     def _constrain_vel(self, vel, dim):
         """速度约束"""
-        if dim in self.fixed_dim_idx:
-            return 0.0
-        
         min_val, max_val = self.bounds[dim]
         vel_limit = 0.2 * (max_val - min_val)
         return np.clip(vel, -vel_limit, vel_limit)
@@ -476,7 +460,7 @@ class ParticleSwarmOptimizer:
         return self.gbest_position, self.gbest_fitness, self.gbest_history
 
 # ======================================================================================
-# 8. 结果分析与输出模块
+# 7. 结果分析与输出模块
 # ======================================================================================
 
 def parse_best_params(best_params):
@@ -520,7 +504,7 @@ def parse_best_params(best_params):
 
     return strategy_list
 
-def save_to_excel(strategy_list, total_shield_time, filename="result_fy1_fixed.xlsx"):
+def save_to_excel(strategy_list, total_shield_time, filename="result2.xlsx"):
     """保存结果到Excel文件"""
     df = pd.DataFrame(strategy_list)
     
@@ -532,13 +516,13 @@ def save_to_excel(strategy_list, total_shield_time, filename="result_fy1_fixed.x
 
     # 保存文件
     with pd.ExcelWriter(filename, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="三无人机投放策略(FY1固定)", index=False)
+        df.to_excel(writer, sheet_name="三无人机投放策略", index=False)
     
     print(f"\n结果已保存到: {filename}")
     return df
 
 # ======================================================================================
-# 9. 主程序执行流程
+# 8. 主程序执行流程
 # ======================================================================================
 
 if __name__ == "__main__":
@@ -550,14 +534,14 @@ if __name__ == "__main__":
     target_samples = generate_ultra_dense_samples(real_target)
     print(f"目标采样点数量: {len(target_samples):,}")
 
-    # Step 2: 定义参数边界
+    # Step 2: 定义12维参数边界（三架无人机，每架4个参数）
     param_bounds = []
     for _ in range(3):  # 三架无人机
         param_bounds.extend([
-            (0.0, 2*np.pi),    # theta: 飞行方向角
-            (70.0, 140.0),     # v: 飞行速度
-            (0.0, 100.0),      # t1: 投放延迟
-            (0.0, 30.0)        # t2: 起爆延迟
+            (0.0, 2*np.pi),    # theta: 飞行方向角 (0-360°)
+            (70.0, 140.0),     # v: 飞行速度 (70-140 m/s)
+            (0.0, 100.0),      # t1: 投放延迟 (0-100s)
+            (0.0, 30.0)        # t2: 起爆延迟 (0-30s)
         ])
 
     # Step 3: 定义适应度函数
@@ -565,15 +549,14 @@ if __name__ == "__main__":
         return fitness_function(params, target_samples)
 
     # Step 4: 启动粒子群优化
-    print("\nStep 2: 启动粒子群优化（FY1固定，优化FY2/FY3）...")
+    print("\nStep 2: 启动粒子群优化（12维参数全优化）...")
     pso = ParticleSwarmOptimizer(
         objective_func=objective,
         bounds=param_bounds,
-        fixed_fy1_params=FY1_FIXED_PARAMS,
-        num_particles=80,
-        max_iter=120,
-        c1=1.8,
-        c2=1.8,
+        num_particles=80,    # 增加粒子数以应对高维度
+        max_iter=120,        # 增加迭代次数
+        c1=1.8,             # 调整认知系数
+        c2=1.8,             # 调整社会系数
         w_start=0.9,
         w_end=0.3
     )
@@ -593,7 +576,7 @@ if __name__ == "__main__":
 
     # Step 7: 输出结果汇总
     print("\n" + "=" * 80)
-    print("【优化结果汇总：FY1固定第二问参数，FY2/FY3优化】")
+    print("【第四问最优投放策略汇总】")
     print(f"总有效遮蔽时长: {verify_fitness:.4f} s")
     print("\n各无人机策略详情:")
     
@@ -603,23 +586,21 @@ if __name__ == "__main__":
         print(f"   投放延迟: {strategy['投放延迟(s)']}s | 起爆延迟: {strategy['起爆延迟(s)']}s")
         print(f"   起爆点: ({strategy['起爆点X(m)']}, {strategy['起爆点Y(m)']}, {strategy['起爆点Z(m)']}) m")
         print(f"   烟幕有效时段: [{strategy['起爆时刻(s)']}s, {strategy['烟幕失效时刻(s)']}s]")
-        if i == 0:
-            print(f"   注：该无人机参数为第二问固定结果，未参与本次优化")
     
     print("=" * 80)
 
     # Step 8: 绘制收敛曲线
     plt.figure(figsize=(12, 8))
     plt.plot(history, linewidth=2, color="#2E86AB", marker='o', markersize=3)
-    plt.scatter(np.argmax(history), np.max(history), color="#A1346E", s=100, 
+    plt.scatter(np.argmax(history), np.max(history), color="#A23B72", s=100, 
                 label=f"最优值: {np.max(history):.4f}s", zorder=5)
-    plt.title("FY1固定第二问参数 | FY2/FY3优化收敛曲线", fontsize=16, fontweight="bold")
+    plt.title("第四问：三无人机协同优化收敛曲线", fontsize=16, fontweight="bold")
     plt.xlabel("迭代次数", fontsize=14)
     plt.ylabel("总遮蔽时长 (s)", fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=12)
     plt.tight_layout()
-    plt.savefig("fy1_fixed_convergence.png", dpi=300, bbox_inches="tight")
+    plt.savefig("q4_convergence.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # Step 9: 计算总耗时
