@@ -1,9 +1,3 @@
-"""
-第四问：三无人机协同投放策略优化（FY1参数固定版本）
-- 固定FY1为第二问最优参数
-- 仅优化FY2和FY3的参数
-- 采用粒子群算法求解最优投放策略
-"""
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
