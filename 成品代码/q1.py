@@ -1,53 +1,46 @@
 import numpy as np
 import time
-
+# 计算导弹轨迹与烟雾遮挡的时间段
 class Parameters:
     def __init__(self):
         self.g = 9.8
         self.dt = 0.001
         self.eps = 1e-15
-        
         # 目标设置
         self.fake_target = np.array([0, 0, 0])
         self.real_target_base = np.array([0, 200, 0])
         self.target_R = 7.0
         self.target_H = 10.0
-        
         # 飞行器参数
         self.uav_start = np.array([17800, 0, 1800])
         self.uav_v = 120.0
         self.delay1 = 1.5
         self.delay2 = 3.6
-        
         # 烟雾参数
         self.smoke_R = 10.0
         self.smoke_fall_v = 3.0
         self.smoke_life = 20.0
-        
         # 导弹参数
         self.missile_start = np.array([20000, 0, 2000])
         self.missile_v = 300.0
 
+# 其他参数和计算函数定义
 def get_release_pos(params):
     p1 = params.uav_start
     target = params.fake_target
-    
     vec_h = target[:2] - p1[:2]
     d_h = np.linalg.norm(vec_h)
-    
     if d_h > params.eps:
         dir_h = vec_h / d_h
     else:
         dir_h = np.zeros(2)
-    
     dist = params.uav_v * params.delay1
     xy = p1[:2] + dir_h * dist
-    
     return np.array([xy[0], xy[1], p1[2]])
 
+# 计算弹药起爆位置，基于释放位置和飞行时间
 def get_explode_pos(params, release_pt):
     target = params.fake_target
-    
     vec_h = target[:2] - release_pt[:2]
     d_h = np.linalg.norm(vec_h)
     
@@ -55,10 +48,9 @@ def get_explode_pos(params, release_pt):
         dir_h = vec_h / d_h
     else:
         dir_h = np.zeros(2)
-    
+
     dist = params.uav_v * params.delay2
     xy = release_pt[:2] + dir_h * dist
-    
     fall_h = 0.5 * params.g * params.delay2**2
     z = release_pt[2] - fall_h
     
@@ -68,13 +60,11 @@ def create_mesh_points(params):
     base = params.real_target_base
     R = params.target_R
     H = params.target_H
-    
     pts = []
-    
-    # 圆周采样
+
+    # 对圆周进行采样
     n_circle = 20
     n_height = 6
-    
     angles = np.linspace(0, 2*np.pi, n_circle, endpoint=False)
     heights = np.linspace(base[2], base[2] + H, n_height)
     
@@ -91,7 +81,7 @@ def create_mesh_points(params):
             y = base[1] + R * np.sin(theta)
             pts.append([x, y, h])
     
-    # 内部点
+    # 内部的点
     for r in [0, R*0.3, R*0.7]:
         for theta in np.linspace(0, 2*np.pi, 8, endpoint=False):
             for h in np.linspace(base[2], base[2] + H, 3):
@@ -156,7 +146,7 @@ def run_analysis():
     print(f"\n爆炸时刻: {t_explode:.2f}s")
     print(f"分析区间: [{t_begin:.2f}, {t_finish:.2f}]s")
     
-    # 主循环分析
+    # 主循环
     block_duration = 0.0
     intervals = []
     prev_blocked = False

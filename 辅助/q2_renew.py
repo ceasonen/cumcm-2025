@@ -1,4 +1,13 @@
-﻿import numpy as np
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep  5 14:25:13 2024
+@author: Research Team Alpha
+@version: 2.1.3
+@description: Advanced Tactical Optimization Framework
+"""
+
+import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 import multiprocessing as mp
