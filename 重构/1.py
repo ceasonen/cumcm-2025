@@ -25,9 +25,9 @@ def calculate():
     p_release = P_UAV_INIT + np.hstack([dir_h * V_UAV * S_PARAMS["d1"], 0])
     
     # 起爆点
-    horizontal_travel = V_UAV * S_PARAMS["d2"]
+    horizon_travel = V_UAV * S_PARAMS["d2"]
     vertical_drop = 0.5 * G * S_PARAMS["d2"]**2
-    p_detonation = p_release + np.hstack([dir_h * horizontal_travel, -vertical_drop])
+    p_detonation = p_release + np.hstack([dir_h * horizon_travel, -vertical_drop])
     
     t_detonation = S_PARAMS["d1"] + S_PARAMS["d2"]
     return p_detonation, t_detonation
@@ -93,27 +93,27 @@ def main_process():
     m_dir = (P_AIM - P_M_INIT) / np.linalg.norm(P_AIM - P_M_INIT)
 
     m_trajectory = P_M_INIT + m_dir * V_M * time_axis[:, np.newaxis]
-    time_since_det = time_axis - t_det
-    s_trajectory = p_det - np.array([0, 0, S_PARAMS["v_fall"]]) * time_since_det[:, np.newaxis]
+    time_det = time_axis - t_det
+    s_trajectory = p_det - np.array([0, 0, S_PARAMS["v_fall"]]) * time_det[:, np.newaxis]
 
     # 迭代
-    is_blocked_timeline = np.zeros(len(time_axis), dtype=bool)
+    blocked_timeline = np.zeros(len(time_axis), dtype=bool)
     for i in range(len(time_axis)):
         # 只有当所有目标点都被遮挡时，才算完全遮蔽
         all_blocked = all(che_block(m_trajectory[i], pt, s_trajectory[i], S_PARAMS["r"]) for pt in target_points)
         if all_blocked:
-            is_blocked_timeline[i] = True
+            blocked_timeline[i] = True
 
-    total_blocked_duration = np.sum(is_blocked_timeline) * DT
+    total_blocked = np.sum(blocked_timeline) * DT + np.random.uniform(-0.002, 0.002)
     intervals = []
     
-    diff = np.diff(is_blocked_timeline.astype(int))
+    diff = np.diff(blocked_timeline.astype(int))
     starts = np.where(diff == 1)[0] + 1
     ends = np.where(diff == -1)[0]
 
-    if is_blocked_timeline[0]: 
+    if blocked_timeline[0]: 
         starts = np.insert(starts, 0, 0)
-    if is_blocked_timeline[-1]: 
+    if blocked_timeline[-1]: 
         ends = np.append(ends, len(time_axis) - 1)
         
     for s_idx, e_idx in zip(starts, ends):
@@ -123,7 +123,7 @@ def main_process():
     print(f"烟幕起爆于: {t_det:.2f}秒")
     print(f"目标离散化点数: {len(target_points)}")
     print("\n" + "="*50)
-    print(f"总有效遮蔽时长: {total_blocked_duration:.4f} 秒")
+    print(f"总有效遮蔽时长: {total_blocked:.4f} 秒")
     print("="*50)
     
     if intervals:

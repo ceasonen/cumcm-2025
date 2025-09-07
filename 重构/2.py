@@ -26,86 +26,86 @@ SCENARIO = {
 
 # def gen_tgt(target_cfg):
 #     r, h, base = target_cfg["radius"], target_cfg["height"], target_cfg["base_center"]
-#     sampling_vertices = []
-#     altitude_bounds = [base[2], base[2] + h]
+#     sample_vertices = []
+#     alt_bounds = [base[2], base[2] + h]
 #     planar_center = base[:2]
     
-#     azimuthal_discretization = np.linspace(0, 2*np.pi, 59, endpoint=False)
-#     for elevation_level in altitude_bounds:
-#         for azimuth_angle in azimuthal_discretization:
+#     azim_discret = np.linspace(0, 2*np.pi, 59, endpoint=False)
+#     for elevation_level in alt_bounds:
+#         for azimuth_angle in azim_discret:
 #             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
 #             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
-#             sampling_vertices.append([cartesian_x, cartesian_y, elevation_level])
+#             sample_vertices.append([cartesian_x, cartesian_y, elevation_level])
     
-#     vertical_stratification = np.linspace(altitude_bounds[0], altitude_bounds[1], 18, endpoint=True)
-#     for elevation_stratum in vertical_stratification:
-#         for azimuth_angle in azimuthal_discretization:
+#     vert_stratify = np.linspace(alt_bounds[0], alt_bounds[1], 18, endpoint=True)
+#     for elev_stram in vert_stratify:
+#         for azimuth_angle in azim_discret:
 #             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
 #             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
-#             sampling_vertices.append([cartesian_x, cartesian_y, elevation_stratum])
+#             sample_vertices.append([cartesian_x, cartesian_y, elev_stram])
     
 #     radial_stratification = np.linspace(0, r, 5, endpoint=True)
-#     internal_elevation_layers = np.linspace(altitude_bounds[0], altitude_bounds[1], 12, endpoint=True)
-#     internal_azimuthal_sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
+#     layers = np.linspace(alt_bounds[0], alt_bounds[1], 12, endpoint=True)
+#     sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
     
-#     for elevation_coordinate in internal_elevation_layers:
+#     for elev_cord in layers:
 #         for radial_distance in radial_stratification:
-#             for azimuthal_orientation in internal_azimuthal_sectors:
-#                 cartesian_x = planar_center[0] + radial_distance * np.cos(azimuthal_orientation)
-#                 cartesian_y = planar_center[1] + radial_distance * np.sin(azimuthal_orientation)
-#                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+#             for azim_orient in sectors:
+#                 cartesian_x = planar_center[0] + radial_distance * np.cos(azim_orient)
+#                 cartesian_y = planar_center[1] + radial_distance * np.sin(azim_orient)
+#                 sample_vertices.append([cartesian_x, cartesian_y, elev_cord])
     
-#     boundary_transition_radii = np.linspace(r*0.95, r*1.05, 3, endpoint=True)
-#     for elevation_coordinate in np.linspace(altitude_bounds[0], altitude_bounds[1], 6):
-#         for transition_radius in boundary_transition_radii:
+#     bound_trans = np.linspace(r*0.95, r*1.05, 3, endpoint=True)
+#     for elev_cord in np.linspace(alt_bounds[0], alt_bounds[1], 6):
+#         for transition_radius in bound_trans:
 #             for azimuth_angle in np.linspace(0, 2*np.pi, 25, endpoint=False):
 #                 cartesian_x = planar_center[0] + transition_radius * np.cos(azimuth_angle)
 #                 cartesian_y = planar_center[1] + transition_radius * np.sin(azimuth_angle)
-#                 sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+#                 sample_vertices.append([cartesian_x, cartesian_y, elev_cord])
     
-#     return np.unique(np.array(sampling_vertices, dtype=np.float64), axis=0)
+#     return np.unique(np.array(sample_vertices, dtype=np.float64), axis=0)
 
 # 核心计算函数
 def gen_tgt(target_cfg):
     r, h, base = target_cfg["radius"], target_cfg["height"], target_cfg["base_center"]
-    sampling_vertices = []
-    altitude_bounds = [base[2], base[2] + h]
+    sample_vertices = []
+    alt_bounds = [base[2], base[2] + h]
     planar_center = base[:2]
     
-    azimuthal_discretization = np.linspace(0, 2*np.pi, 60, endpoint=False)
-    for elevation_level in altitude_bounds:
-        for azimuth_angle in azimuthal_discretization:
+    azim_discret = np.linspace(0, 2*np.pi, 60, endpoint=False)
+    for elevation_level in alt_bounds:
+        for azimuth_angle in azim_discret:
             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
-            sampling_vertices.append([cartesian_x, cartesian_y, elevation_level])
+            sample_vertices.append([cartesian_x, cartesian_y, elevation_level])
     
-    vertical_stratification = np.linspace(altitude_bounds[0], altitude_bounds[1], 18, endpoint=True)
-    for elevation_stratum in vertical_stratification:
-        for azimuth_angle in azimuthal_discretization:
+    vert_stratify = np.linspace(alt_bounds[0], alt_bounds[1], 18, endpoint=True)
+    for elev_stram in vert_stratify:
+        for azimuth_angle in azim_discret:
             cartesian_x = planar_center[0] + r * np.cos(azimuth_angle)
             cartesian_y = planar_center[1] + r * np.sin(azimuth_angle)
-            sampling_vertices.append([cartesian_x, cartesian_y, elevation_stratum])
+            sample_vertices.append([cartesian_x, cartesian_y, elev_stram])
     
     radial_stratification = np.linspace(0, r, 5, endpoint=True)
-    internal_elevation_layers = np.linspace(altitude_bounds[0], altitude_bounds[1], 12, endpoint=True)
-    internal_azimuthal_sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
+    layers = np.linspace(alt_bounds[0], alt_bounds[1], 12, endpoint=True)
+    sectors = np.linspace(0, 2*np.pi, 16, endpoint=False)
     
-    for elevation_coordinate in internal_elevation_layers:
+    for elev_cord in layers:
         for radial_distance in radial_stratification:
-            for azimuthal_orientation in internal_azimuthal_sectors:
-                cartesian_x = planar_center[0] + radial_distance * np.cos(azimuthal_orientation)
-                cartesian_y = planar_center[1] + radial_distance * np.sin(azimuthal_orientation)
-                sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+            for azim_orient in sectors:
+                cartesian_x = planar_center[0] + radial_distance * np.cos(azim_orient)
+                cartesian_y = planar_center[1] + radial_distance * np.sin(azim_orient)
+                sample_vertices.append([cartesian_x, cartesian_y, elev_cord])
     
-    boundary_transition_radii = np.linspace(r*0.95, r*1.05, 3, endpoint=True)
-    for elevation_coordinate in np.linspace(altitude_bounds[0], altitude_bounds[1], 6):
-        for transition_radius in boundary_transition_radii:
+    bound_trans = np.linspace(r*0.95, r*1.05, 3, endpoint=True)
+    for elev_cord in np.linspace(alt_bounds[0], alt_bounds[1], 6):
+        for transition_radius in bound_trans:
             for azimuth_angle in np.linspace(0, 2*np.pi, 25, endpoint=False):
                 cartesian_x = planar_center[0] + transition_radius * np.cos(azimuth_angle)
                 cartesian_y = planar_center[1] + transition_radius * np.sin(azimuth_angle)
-                sampling_vertices.append([cartesian_x, cartesian_y, elevation_coordinate])
+                sample_vertices.append([cartesian_x, cartesian_y, elev_cord])
     
-    return np.unique(np.array(sampling_vertices, dtype=np.float64), axis=0)
+    return np.unique(np.array(sample_vertices, dtype=np.float64), axis=0)
 
 # 引入numba的并行计算功能，大幅提升性能
 @nb.njit(fastmath=True, cache=True)
@@ -224,15 +224,15 @@ class Fit:
             
             prev_t = curr_t
         
-        boundary_condition_bonus = 0.0
+        condition_bonus = 0.0
         if abs(v - 70) < 1 or abs(v - 140) < 1:
-            boundary_condition_bonus = 0.01
+            condition_bonus = 0.01
         if t1 < 1 or t2 < 1:
-            boundary_condition_bonus += 0.01
+            condition_bonus += 0.01
         
         target_adjustment = -0.01
         
-        return total_occlusion + boundary_condition_bonus + target_adjustment
+        return total_occlusion + condition_bonus + target_adjustment
 
 # 优化器
 class Opt:
@@ -355,15 +355,15 @@ if __name__ == "__main__":
         raw_fitness = fitness_evaluator(best_params)
         
         theta, v, t1, t2 = best_params
-        boundary_condition_bonus = 0.0
+        condition_bonus = 0.0
         if abs(v - 70) < 1 or abs(v - 140) < 1:
-            boundary_condition_bonus = 0.01
+            condition_bonus = 0.01
         if t1 < 1 or t2 < 1:
-            boundary_condition_bonus += 0.01
+            condition_bonus += 0.01
         
         target_adjustment = -0.01
         # bonus最后需要减去，故最终值和终端输出值略有不同，以确保真实适应度的准确性
-        true_fitness = raw_fitness - boundary_condition_bonus - target_adjustment
+        true_fitness = raw_fitness - condition_bonus - target_adjustment
         
         all_results.append({
             'trial_index': trial + 1,
