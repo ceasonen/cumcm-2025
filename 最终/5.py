@@ -184,7 +184,6 @@ class ZhanShuYouHuaKuangJia:
         zui_you_v, zui_you_smokes, max_zong_sd = None, [], 0
 
         for v in v_hou_xuan:
-            # *** LOGIC CORRECTION: Reset temporary state for each velocity candidate ***
             self.uav_zhuang_tai[uav_mc]["smokes"] = []
             dang_qian_smokes = []
             
@@ -204,7 +203,6 @@ class ZhanShuYouHuaKuangJia:
                     theta, t_tf, t_qb_yc = zui_you_cs
                     new_smoke = {"v": v, "theta": theta, "t_tf": t_tf, "t_qb_yc": t_qb_yc, "sd": zui_you_sd, "dd": dd_mc}
                     dang_qian_smokes.append(new_smoke)
-                    # *** LOGIC CORRECTION: Update state for the next smoke's evaluation ***
                     self.uav_zhuang_tai[uav_mc]["smokes"] = dang_qian_smokes
             
             zong_sd = sum(s['sd'] for s in dang_qian_smokes)
@@ -213,7 +211,6 @@ class ZhanShuYouHuaKuangJia:
                 zui_you_v = v
                 zui_you_smokes = dang_qian_smokes
         
-        # *** LOGIC CORRECTION: Final state update with the best found strategy ***
         if zui_you_smokes:
             final_smokes = self._lu_jing_ni_he_yu_wei_tiao(uav_mc, dd_mc, zui_you_smokes)
             self.uav_zhuang_tai[uav_mc]["v"] = zui_you_v
@@ -263,7 +260,6 @@ class ZhanShuYouHuaKuangJia:
             for dd_mc, uav_list in fen_pei.items():
                 for uav_mc in uav_list:
                     print(f"优化 {uav_mc} -> {dd_mc}...")
-                    # *** LOGIC CORRECTION: Clear state before optimizing a drone for a new task ***
                     self.uav_zhuang_tai[uav_mc]["smokes"] = []
                     self._you_hua_dan_ge_uav(uav_mc, dd_mc)
 
@@ -280,10 +276,11 @@ class ZhanShuYouHuaKuangJia:
                 ting_zhi_ji_shu = 0
             shang_yi_zong_sd = zong_sd
         
-        self._sheng_cheng_bao_gao()
+        final_total_time = self.li_shi[-1] if self.li_shi else 0.0
+        self._sheng_cheng_bao_gao(final_total_time)
         self._hui_zhi_qu_xian()
 
-    def _sheng_cheng_bao_gao(self):
+    def _sheng_cheng_bao_gao(self, zong_shi_chang):
         bao_gao_shu_ju = []
         for uav_pz in self.pz.uav_liebiao:
             uav_mc = uav_pz.mc
@@ -307,16 +304,28 @@ class ZhanShuYouHuaKuangJia:
                         "烟幕干扰弹起爆点的x坐标(m)": p_qb[0],
                         "烟幕干扰弹起爆点的y坐标(m)": p_qb[1],
                         "烟幕干扰弹起爆点的z坐标(m)": p_qb[2],
-                        "有效干扰时长(s)": dan['sd'],
                         "干扰的导弹编号": dan['dd']
                     })
                 bao_gao_shu_ju.append(row_data)
 
         df = pd.DataFrame(bao_gao_shu_ju)
+        
+        df['总遮蔽时长(s)'] = np.nan
+        if not df.empty:
+            df.loc[0, '总遮蔽时长(s)'] = zong_shi_chang
+
+        column_order = [
+            "无人机编号", "烟幕干扰弹编号", "无人机运动方向", "无人机运动速度(m/s)",
+            "烟幕干扰弹投放点的x坐标(m)", "烟幕干扰弹投放点的y坐标(m)", "烟幕干扰弹投放点的z坐标(m)",
+            "烟幕干扰弹起爆点的x坐标(m)", "烟幕干扰弹起爆点的y坐标(m)", "烟幕干扰弹起爆点的z坐标(m)",
+            "干扰的导弹编号", "总遮蔽时长(s)"
+        ]
+        
+        df = df.reindex(columns=column_order)
         df.to_excel("result3.xlsx", index=False, float_format="%.4f")
+        
         print("\n" + "="*80 + "\n【最终优化结果】\n" + "="*80)
         print(df.to_string(index=False))
-        zong_shi_chang = df["有效干扰时长(s)"].sum()
         print(f"\n总计有效遮蔽时长: {zong_shi_chang:.4f} s")
         print("\n报告已保存至 'result3.xlsx'")
 
