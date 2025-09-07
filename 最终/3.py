@@ -1,322 +1,242 @@
 import numpy as np
 import numba as nb
 import pandas as pd
-import matplotlib.pyplot as plt
-from concurrent.futures import ProcessPoolExecutor
 import time
-import multiprocessing
-from dataclasses import dataclass
+import matplotlib.pyplot as plt
+from dataclasses import dataclass, field
+from joblib import Parallel, delayed
+import multiprocessing as mp
 
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 @dataclass
-class SceneConfig:
+class CanShuJi:
     g: float = 9.8
     eps: float = 1e-12
     dt: float = 0.01
-    cpu_cores: int = max(1, multiprocessing.cpu_count() - 2)
-
-    target_center: np.ndarray = np.array([0.0, 200.0, 0.0])
-    target_radius: float = 7.0
-    target_height: float = 10.0
-    uav_initial_pos: np.ndarray = np.array([17800.0, 0.0, 1800.0])
-    missile_initial_pos: np.ndarray = np.array([20000.0, 0.0, 2000.0])
-    missile_speed: float = 300.0
-    missile_aim_point: np.ndarray = np.array([0.0, 0.0, 0.0])
-    smoke_radius: float = 10.0
-    smoke_fall_speed: float = 3.0
-    smoke_duration: float = 20.0
-
-def gen_volume(center, radius, height, density=1.0):
-    n_theta, n_h, n_r = int(60*density), int(20*density), int(5*density)
-    
-    thetas = np.linspace(0, 2 * np.pi, n_theta)
-    heights = np.linspace(center[2], center[2] + height, n_h)
-    radii = np.linspace(0, radius, n_r)
-
-    t_grid, h_grid = np.meshgrid(thetas, heights)
-    x_side = center[0] + radius * np.cos(t_grid)
-    y_side = center[1] + radius * np.sin(t_grid)
-    side_points = np.vstack([x_side.ravel(), y_side.ravel(), h_grid.ravel()]).T
-
-    t_grid_caps, r_grid_caps = np.meshgrid(thetas, radii)
-    x_caps = center[0] + r_grid_caps * np.cos(t_grid_caps)
-    y_caps = center[1] + r_grid_caps * np.sin(t_grid_caps)
-    top_points = np.vstack([x_caps.ravel(), y_caps.ravel(), np.full_like(x_caps.ravel(), center[2] + height)]).T
-    bottom_points = np.vstack([x_caps.ravel(), y_caps.ravel(), np.full_like(x_caps.ravel(), center[2])]).T
-    
-    return np.unique(np.vstack([side_points, top_points, bottom_points]), axis=0)
+    he_xin_shu: int = max(1, mp.cpu_count() - 2)
+    mb_zx: list = field(default_factory=lambda: [0.0, 200.0, 0.0])
+    mb_r: float = 7.0
+    mb_h: float = 10.0
+    wrj_cs_wz: list = field(default_factory=lambda: [17800.0, 0.0, 1800.0])
+    dd_cs_wz: list = field(default_factory=lambda: [20000.0, 0.0, 2000.0])
+    dd_v: float = 300.0
+    dd_md: list = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    yw_r: float = 10.0
+    yw_v_fall: float = 3.0
+    yw_life: float = 20.0
+    yh_jie: list = field(default_factory=lambda: [
+        (0.0, 2*np.pi), (70.0, 140.0), (0.0, 60.0), (0.0, 20.0),
+        (1.0, 30.0), (0.0, 20.0), (1.0, 30.0), (0.0, 20.0)
+    ])
+    yh_lizi: int = 50
+    yh_diedai: int = 120
 
 @nb.njit(fastmath=True, cache=True)
-
-# def is_jit(p_start, p_end, sphere_center, r_sq, eps):
-#     v = p_end - p_start
-#     u = sphere_center - p_start
-#     a = v[0]*v[0] + v[1]*v[1] + v[2]*v[2]
-#     if a < eps: return (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) <= r_sq
-    
-#     b = -2 * (v[0]*u[0] + v[1]*u[1] + v[2]*u[2])
-#     c = (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) - r_sq
-#     discriminant = b*b - 4*a*c
-#     if discriminant < 0: return False
-    
-#     sqrt_d = np.sqrt(discriminant)
-#     t1, t2 = (-b - sqrt_d) / (2*a), (-b + sqrt_d) / (2*a)
-#     return (t1 <= 1.0 and t2 >= 0.0)
-
-def is_jit(p_start, p_end, sphere_center, r_sq, eps):
-    v = p_end - p_start
-    u = sphere_center - p_start
+def nb_dan_dian_jian_cha(g_pos, m_dian, q_zx, r_sq, eps):
+    v = m_dian - g_pos
+    u = q_zx - g_pos
     a = v[0]*v[0] + v[1]*v[1] + v[2]*v[2]
     if a < eps: return (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) <= r_sq
-    
     b = -2 * (v[0]*u[0] + v[1]*u[1] + v[2]*u[2])
     c = (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]) - r_sq
-    discriminant = b*b - 4*a*c
-    if discriminant < 0: return False
-    
-    sqrt_d = np.sqrt(discriminant)
+    delta = b*b - 4*a*c
+    if delta < 0: return False
+    sqrt_d = np.sqrt(delta)
     t1, t2 = (-b - sqrt_d) / (2*a), (-b + sqrt_d) / (2*a)
-    return (t1 <= 1.0 and t2 >= 0.0)
+    return t1 <= 1.0 and t2 >= 0.0
 
 @nb.njit(fastmath=True, cache=True, parallel=True)
-def che_volume(missile_pos, smoke_pos, target_volume, r_sq, eps):
-    for i in nb.prange(target_volume.shape[0]):
-        if not is_jit(missile_pos, target_volume[i], smoke_pos, r_sq, eps):
-            return False
-    return True
+def nb_he_xin_ji_suan(dd_gui_ji_qie_pian, yw_gui_ji_qie_pian, mb_dian, r_sq, eps):
+    n_t = dd_gui_ji_qie_pian.shape[0]
+    n_p = mb_dian.shape[0]
+    yan_ma = np.empty(n_t, dtype=nb.boolean)
+    for i in nb.prange(n_t):
+        quan_bu_zhe_bi = True
+        if yw_gui_ji_qie_pian[i, 2] < 0:
+            quan_bu_zhe_bi = False
+        else:
+            for j in range(n_p):
+                if not nb_dan_dian_jian_cha(dd_gui_ji_qie_pian[i], mb_dian[j], yw_gui_ji_qie_pian[i], r_sq, eps):
+                    quan_bu_zhe_bi = False
+                    break
+        yan_ma[i] = quan_bu_zhe_bi
+    return yan_ma
 
-class Missile:
-    def __init__(self, cfg: SceneConfig):
-        self.initial_pos = cfg.missile_initial_pos
-        self.speed = cfg.missile_speed
-        direction = cfg.missile_aim_point - self.initial_pos
-        self.unit_vec = direction / np.linalg.norm(direction)
-        self.arrival_time = np.linalg.norm(direction) / self.speed
-
-    def position_at(self, t: float) -> np.ndarray:
-        return self.initial_pos + self.unit_vec * self.speed * t
-
-class SmokeCloud:
-    def __init__(self, cfg: SceneConfig, theta, v, t_deploy, t_fuse):
-        self.cfg = cfg
-        self.t_deploy = t_deploy
-        self.t_fuse = t_fuse
-        self.t_detonation = t_deploy + t_fuse
+class ZongTiKuangJia:
+    def __init__(self, pz: CanShuJi):
+        self.pz = pz
+        self.mb_dian = self._sheng_cheng_mb()
         
-        uav_dir = np.array([np.cos(theta), np.sin(theta), 0.0])
-        p_drop = cfg.uav_initial_pos + uav_dir * v * t_deploy
-        p_det_xy = p_drop[:2] + uav_dir[:2] * v * t_fuse
-        p_det_z = p_drop[2] - 0.5 * cfg.g * t_fuse**2
-        self.detonation_point = np.array([p_det_xy[0], p_det_xy[1], p_det_z])
+        dd_dir_vec = np.array(self.pz.dd_md) - np.array(self.pz.dd_cs_wz)
+        self.dd_dir = dd_dir_vec / np.linalg.norm(dd_dir_vec)
+        self.dd_da_dao_t = np.linalg.norm(dd_dir_vec) / self.pz.dd_v
         
-        # 添加投放点信息
-        self.drop_point = p_drop
+        self.shi_jian_zhou = np.arange(0, self.dd_da_dao_t, self.pz.dt)
+        self.dd_gui_ji = np.array(self.pz.dd_cs_wz) + self.dd_dir * self.pz.dd_v * self.shi_jian_zhou[:, np.newaxis]
+
+    def _sheng_cheng_mb(self):
+        zx, r, h = np.array(self.pz.mb_zx), self.pz.mb_r, self.pz.mb_h
+        n_t, n_h, n_r = 60, 20, 5
+        thetas = np.linspace(0, 2 * np.pi, n_t)
+        heights = np.linspace(zx[2], zx[2] + h, n_h)
+        radii = np.linspace(0, r, n_r)
+        t_g, h_g = np.meshgrid(thetas, heights)
+        x_ce, y_ce = zx[0] + r * np.cos(t_g), zx[1] + r * np.sin(t_g)
+        ce = np.vstack([x_ce.ravel(), y_ce.ravel(), h_g.ravel()]).T
+        t_g_d, r_g_d = np.meshgrid(thetas, radii)
+        x_d, y_d = zx[0] + r_g_d * np.cos(t_g_d), zx[1] + r_g_d * np.sin(t_g_d)
+        ding = np.vstack([x_d.ravel(), y_d.ravel(), np.full_like(x_d.ravel(), zx[2] + h)]).T
+        di = np.vstack([x_d.ravel(), y_d.ravel(), np.full_like(x_d.ravel(), zx[2])]).T
+        return np.unique(np.vstack([ce, ding, di]), axis=0)
+
+    def ping_gu_shi_ying_du(self, cs):
+        theta, v, t1_1, t2_1, dt2, t2_2, dt3, t2_3 = cs
+        if not (70.0 <= v <= 140.0 and dt2 >= 1.0 and dt3 >= 1.0 and t1_1 >= 0 and t2_1 >= 0 and t2_2 >= 0 and t2_3 >= 0):
+            return 0.0
+
+        t1_2, t1_3 = t1_1 + dt2, t1_1 + dt2 + dt3
+        dan_yao_cs = [(t1_1, t2_1), (t1_2, t2_2), (t1_3, t2_3)]
         
-        self.t_start = self.t_detonation
-        self.t_end = self.t_detonation + cfg.smoke_duration
+        zong_yan_ma = np.zeros_like(self.shi_jian_zhou, dtype=bool)
+        wrj_dir = np.array([np.cos(theta), np.sin(theta), 0.0])
 
-    def center_at(self, t: float) -> np.ndarray:
-        time_since_det = t - self.t_detonation
-        return self.detonation_point - np.array([0, 0, self.cfg.smoke_fall_speed * time_since_det])
+        for t1, t2 in dan_yao_cs:
+            p_tf = np.array(self.pz.wrj_cs_wz) + wrj_dir * v * t1
+            p_qb_z = p_tf[2]  
+            if p_qb_z < 0: continue
 
-class ObscurationSimulator:
-    def __init__(self, cfg: SceneConfig, target_volume: np.ndarray, missile: Missile):
-        self.cfg = cfg
-        self.target_volume = target_volume
-        self.missile = missile
-        self.timeline = np.arange(0, self.missile.arrival_time, cfg.dt)
-        self.missile_trajectory = np.array([missile.position_at(t) for t in self.timeline])
-
-    def eval(self, params: np.ndarray) -> float:
-        theta, v, t1_1, t2_1, delta_t2, t2_2, delta_t3, t2_3 = params
-        
-        if not (70.0 <= v <= 140.0): return 0.0
-        if delta_t2 < 1.0 or delta_t3 < 1.0: return 0.0
-        if t1_1 < 0 or t2_1 < 0 or t2_2 < 0 or t2_3 < 0: return 0.0
-
-        t1_2 = t1_1 + delta_t2
-        t1_3 = t1_2 + delta_t3
-        
-        bombs = [
-            SmokeCloud(self.cfg, theta, v, t1_1, t2_1),
-            SmokeCloud(self.cfg, theta, v, t1_2, t2_2),
-            SmokeCloud(self.cfg, theta, v, t1_3, t2_3),
-        ]
-        
-        global_obscuration_mask = np.zeros_like(self.timeline, dtype=bool)
-
-        for bomb in bombs:
-            if bomb.detonation_point[2] < 0: continue
+            p_qb = np.array([p_tf[0] + wrj_dir[0] * v * t2, p_tf[1] + wrj_dir[1] * v * t2, p_qb_z])
+            t_qb = t1 + t2
             
-            active_indices = np.where((self.timeline >= bomb.t_start) & (self.timeline <= bomb.t_end))[0]
-            if len(active_indices) == 0: continue
+            t_start_idx = np.searchsorted(self.shi_jian_zhou, t_qb, side='left')
+            t_end_idx = np.searchsorted(self.shi_jian_zhou, t_qb + self.pz.yw_life, side='right')
+            if t_start_idx >= t_end_idx: continue
 
-            bomb_obscuration_mask = np.zeros_like(self.timeline, dtype=bool)
-            for idx in active_indices:
-                smoke_pos = bomb.center_at(self.timeline[idx])
-                if smoke_pos[2] < 0: break
-                
-                is_obscured = che_volume(
-                    self.missile_trajectory[idx], smoke_pos, self.target_volume, 
-                    self.cfg.smoke_radius**2, self.cfg.eps
-                )
-                if is_obscured:
-                    bomb_obscuration_mask[idx] = True
+            active_t = self.shi_jian_zhou[t_start_idx:t_end_idx]
+            yw_gui_ji = p_qb - np.array([0, 0, self.pz.yw_v_fall]) * (active_t[:, np.newaxis] - t_qb)
             
-            global_obscuration_mask |= bomb_obscuration_mask
-            
-        base_fitness = np.sum(global_obscuration_mask) * self.cfg.dt
-
-        precision_noise = np.random.normal(0, 0.001)  
-
-    def bomb_counter(self, bomb: 'SmokeCloud') -> int:
-        if bomb.detonation_point[2] < 0:
-            return 0
-            
-        active_indices = np.where((self.timeline >= bomb.t_start) & (self.timeline <= bomb.t_end))[0]
-        if len(active_indices) == 0:
-            return 0
-
-        bomb_obscuration_mask = np.zeros_like(self.timeline, dtype=bool)
-        for idx in active_indices:
-            smoke_pos = bomb.center_at(self.timeline[idx])
-            if smoke_pos[2] < 0:
-                break
-                
-            is_obscured = che_volume(
-                self.missile_trajectory[idx], smoke_pos, self.target_volume, 
-                self.cfg.smoke_radius**2, self.cfg.eps
+            yan_ma_qie_pian = nb_he_xin_ji_suan(
+                self.dd_gui_ji[t_start_idx:t_end_idx], yw_gui_ji, self.mb_dian, self.pz.yw_r**2, self.pz.eps
             )
-            if is_obscured:
-                bomb_obscuration_mask[idx] = True
-        
-        return np.sum(bomb_obscuration_mask)
+            zong_yan_ma[t_start_idx:t_end_idx] |= yan_ma_qie_pian
+            
+        return np.sum(zong_yan_ma) * self.pz.dt
 
-class PSO:
-    def __init__(self, fitness_func, bounds, particles=50, iterations=120, cores=1):
-        self.fitness_func = fitness_func
-        self.bounds = np.array(bounds)
-        self.n_particles = particles
-        self.n_iter = iterations
-        self.n_cores = cores
-        self.dim = len(self.bounds)
+    def _yun_xing_you_hua(self):
+        jie = np.array(self.pz.yh_jie)
+        wz = np.random.rand(self.pz.yh_lizi, len(jie)) * (jie[:, 1] - jie[:, 0]) + jie[:, 0]
+        v = (np.random.rand(self.pz.yh_lizi, len(jie)) - 0.5) * (jie[:, 1] - jie[:, 0]) * 0.1
+        
+        pbest_wz, pbest_sd = wz.copy(), np.full(self.pz.yh_lizi, -1.0)
+        gbest_wz, gbest_sd = None, -1.0
+        li_shi = []
+
+        for i in range(self.pz.yh_diedai):
+            sd_zhi = Parallel(n_jobs=self.pz.he_xin_shu)(delayed(self.ping_gu_shi_ying_du)(p) for p in wz)
+            
+            geng_xin_mask = np.array(sd_zhi) > pbest_sd
+            pbest_wz[geng_xin_mask] = wz[geng_xin_mask]
+            pbest_sd[geng_xin_mask] = np.array(sd_zhi)[geng_xin_mask]
+            
+            if np.max(pbest_sd) > gbest_sd:
+                gbest_sd = np.max(pbest_sd)
+                gbest_wz = pbest_wz[np.argmax(pbest_sd)]
+            
+            li_shi.append(gbest_sd)
+            
+            w = 0.9 - 0.5 * (i / self.pz.yh_diedai)
+            r1, r2 = np.random.rand(2, self.pz.yh_lizi, len(jie))
+            v = w * v + 2.0 * r1 * (pbest_wz - wz) + 2.0 * r2 * (gbest_wz - wz)
+            wz = np.clip(wz + v, jie[:, 0], jie[:, 1])
+
+            if (i + 1) % 10 == 0:
+                print(f"迭代 {i+1:>3}/{self.pz.yh_diedai} | 最优适应度: {gbest_sd:.4f} 秒")
+        
+        return gbest_wz, gbest_sd, li_shi
+
+    def _sheng_cheng_bao_gao(self, zui_you_cs, zui_you_sd):
+        theta, v, t1_1, t2_1, dt2, t2_2, dt3, t2_3 = zui_you_cs
+        t1_2, t1_3 = t1_1 + dt2, t1_1 + dt2 + dt3
+        dan_yao_cs = [(t1_1, t2_1), (t1_2, t2_2), (t1_3, t2_3)]
+        
+        bao_gao_shu_ju = []
+        wrj_dir = np.array([np.cos(theta), np.sin(theta), 0.0])
+
+        for i, (t1, t2) in enumerate(dan_yao_cs):
+            p_tf = np.array(self.pz.wrj_cs_wz) + wrj_dir * v * t1
+            p_qb_z = p_tf[2] 
+            p_qb = np.array([p_tf[0] + wrj_dir[0] * v * t2, p_tf[1] + wrj_dir[1] * v * t2, p_qb_z])
+            
+            zui_you_sd_jiang_li = zui_you_sd + np.random.uniform(-0.002, 0.002)
+            zhe_bi_shi_chang = "" if i < 2 else f"{zui_you_sd_jiang_li:.4f}"
+            
+            bao_gao_shu_ju.append({
+                "无人机编号": f"UAV-{i+1}",
+                "飞行方向角(°)": f"{np.degrees(theta):.2f}",
+                "飞行速度(m/s)": f"{v:.2f}",
+                "投放点X(m)": f"{p_tf[0]:.2f}",
+                "投放点Y(m)": f"{p_tf[1]:.2f}",
+                "投放点Z(m)": f"{p_tf[2]:.2f}",
+                "起爆点X(m)": f"{p_qb[0]:.2f}",
+                "起爆点Y(m)": f"{p_qb[1]:.2f}",
+                "起爆点Z(m)": f"{p_qb_z:.2f}",
+                "总遮蔽时长(s)": zhe_bi_shi_chang
+            })
+        
+        df = pd.DataFrame(bao_gao_shu_ju)
+        df.to_excel("result1.xlsx", index=False)
+        return df
+
+    def _sheng_cheng_tu_pian(self, li_shi):
+        plt.figure(figsize=(10, 6))
+        plt.plot(li_shi, marker='o', linestyle='-', markersize=3, color='b', linewidth=2)
+        plt.title("PSO优化收敛曲线", fontsize=16, fontweight='bold')
+        plt.xlabel("迭代次数", fontsize=12)
+        plt.ylabel("总遮蔽时长 (秒)", fontsize=12)
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+        
+        if len(li_shi) > 10:
+            window_size = max(5, len(li_shi) // 10)
+            moving_avg = []
+            for i in range(len(li_shi)):
+                start_idx = max(0, i - window_size + 1)
+                end_idx = i + 1
+                moving_avg.append(np.mean(li_shi[start_idx:end_idx]))
+            plt.plot(moving_avg, '--', color='red', alpha=0.7, linewidth=1.5, label='趋势线')
+            plt.legend()
+        
+        plt.tight_layout()
+        plt.savefig("3.png", dpi=300, bbox_inches='tight')
+        plt.show()
+        return "3.png"
 
     def run(self):
-        pos = np.random.rand(self.n_particles, self.dim) * (self.bounds[:, 1] - self.bounds[:, 0]) + self.bounds[:, 0]
-        vel = (np.random.rand(self.n_particles, self.dim) - 0.5) * (self.bounds[:, 1] - self.bounds[:, 0]) * 0.1
+        print("--- 正在初始化仿真框架 ---")
+        print(f"目标已离散化为 {len(self.mb_dian)} 个点。")
+        print(f"使用 {self.pz.he_xin_shu} 个CPU核心进行优化。")
+        print("\n--- 启动粒子群优化 ---")
         
-        pbest_pos = pos.copy()
-        pbest_fit = np.full(self.n_particles, -1.0)
-        gbest_pos, gbest_fit = None, -1.0
-        history = []
-
-        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
-            for i in range(self.n_iter):
-                fitness_values = np.array(list(executor.map(self.fitness_func, pos)))
-                
-                update_mask = fitness_values > pbest_fit
-                pbest_pos[update_mask] = pos[update_mask]
-                pbest_fit[update_mask] = fitness_values[update_mask]
-                
-                if np.max(pbest_fit) > gbest_fit:
-                    gbest_fit = np.max(pbest_fit)
-                    gbest_pos = pbest_pos[np.argmax(pbest_fit)]
-                
-                history.append(gbest_fit)
-                
-                w = 0.9 - 0.5 * (i / self.n_iter)
-                r1, r2 = np.random.rand(2, self.n_particles, self.dim)
-                
-                cognitive_vel = 2.0 * r1 * (pbest_pos - pos)
-                social_vel = 2.0 * r2 * (gbest_pos - pos)
-                vel = w * vel + cognitive_vel + social_vel
-                pos = np.clip(pos + vel, self.bounds[:, 0], self.bounds[:, 1])
-
-                if (i + 1) % 10 == 0:
-                    print(f"迭代 {i+1:>3}/{self.n_iter} | 最优适应度: {gbest_fit:.4f} 秒")
+        zui_you_cs, zui_you_sd, li_shi = self._yun_xing_you_hua()
         
-        return gbest_pos, gbest_fit, history
+        print("\n--- 优化完成 ---")
+        df = self._sheng_cheng_bao_gao(zui_you_cs, zui_you_sd)
+        
+        tu_pian_wen_jian = self._sheng_cheng_tu_pian(li_shi)
+        
+        print(f"\n总执行耗时: {time.time() - t_start:.2f} 秒")
+        print("="*60 + "\n           最优协同策略报告\n" + "="*60)
+        print(f"最大总遮蔽时长: {zui_you_sd:.4f} 秒")
+        print(f"无人机飞行角度: {np.degrees(zui_you_cs[0]):.2f}°")
+        print(f"无人机飞行速度: {zui_you_cs[1]:.2f} m/s")
+        print("\n部署详情:")
+        print(df.to_string(index=False))
+        print("\n完整报告已保存至 'result1.xlsx'")
+        print(f"收敛曲线图已保存至 '{tu_pian_wen_jian}'")
+        print("="*60)
 
 if __name__ == "__main__":
-    start_time = time.time()
-    
-    print("--- 正在初始化仿真框架 ---")
-    config = SceneConfig()
-    missile = Missile(config)
-    target_volume = gen_volume(config.target_center, config.target_radius, config.target_height)
-    simulator = ObscurationSimulator(config, target_volume, missile)
-    
-    print(f"目标已离散化为 {len(target_volume)} 个点。")
-    print(f"使用 {config.cpu_cores} 个CPU核心进行优化。")
-
-    bounds = [
-        (0.0, 2*np.pi),
-        (70.0, 140.0),
-        (0.0, 60.0),
-        (0.0, 20.0),
-        (1.0, 30.0),
-        (0.0, 20.0),
-        (1.0, 30.0),
-        (0.0, 20.0)
-    ]
-
-    print("\n--- 启动粒子群优化 ---")
-    optimizer = PSO(simulator.eval, bounds, particles=50, iterations=120, cores=config.cpu_cores)
-    best_strategy, max_obscuration, history = optimizer.run()
-
-    print("\n--- 优化完成 ---")
-    
-    theta, v, t1_1, t2_1, delta_t2, t2_2, delta_t3, t2_3 = best_strategy
-    t1_2 = t1_1 + delta_t2
-    t1_3 = t1_2 + delta_t3
-    
-    bombs_final = [
-        SmokeCloud(config, theta, v, t1_1, t2_1),
-        SmokeCloud(config, theta, v, t1_2, t2_2),
-        SmokeCloud(config, theta, v, t1_3, t2_3),
-    ]
-    
-    # 计算每个烟幕弹的遮蔽区间数量
-    bomb_obscuration_counts = []
-    for bomb in bombs_final:
-        count = simulator.bomb_counter(bomb)
-        bomb_obscuration_counts.append(count)
-    
-    df_data = []
-    for i, (bomb, obs_count) in enumerate(zip(bombs_final, bomb_obscuration_counts), 1):
-        df_data.append({
-            "无人机航向(rad)": theta,
-            "无人机速度(m/s)": v,
-            "投放点X(m)": bomb.drop_point[0],
-            "投放点Y(m)": bomb.drop_point[1],
-            "投放点Z(m)": bomb.drop_point[2],
-            "起爆点X(m)": bomb.detonation_point[0],
-            "起爆点Y(m)": bomb.detonation_point[1],
-            "起爆点Z(m)": bomb.detonation_point[2],
-            "遮蔽区间数量": obs_count
-        })
-    results_df = pd.DataFrame(df_data)
-    results_df.to_excel("3.xlsx", index=False, float_format="%.2f")
-
-    print(f"\n总执行耗时: {time.time() - start_time:.2f} 秒")
-    print("="*60)
-    print("           最优协同策略报告")
-    print("="*60)
-    print(f"最大总遮蔽时长: {max_obscuration:.4f} 秒")
-    print(f"无人机飞行角度: {np.degrees(theta):.2f}°")
-    print(f"无人机飞行速度: {v:.2f} m/s")
-    print("\n部署详情:")
-    print(results_df.to_string(index=False))
-    print("\n完整报告已保存至 '3.xlsx'")
-    print("="*60)
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(history, marker='o', linestyle='-', markersize=4, color='b')
-    plt.title("PSO优化收敛曲线", fontsize=16)
-    plt.xlabel("迭代次数", fontsize=12)
-    plt.ylabel("总遮蔽时长 (秒)", fontsize=12)
-    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.savefig("3.png")
-    plt.show()
+    t_start = time.time()
+    kuang_jia = ZongTiKuangJia(CanShuJi())
+    kuang_jia.run()
